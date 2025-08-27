@@ -1,0 +1,16 @@
+name: Example Restricted Use Product
+epa_reg_no: 000100-01010
+type: herb
+label_pdf_url: https://www3.epa.gov/pesticides/chem_search/ppls/000100-01010-20201231.pdf
+signal_word: DANGER
+rup: true
+rates:
+  method: spray
+  rainfast_hours: 0.0
+  hoc_ranges:
+    - hoc_max_in: 2.0
+      rate_min: 1.0
+      rate_max: 2.0
+      rate_unit: oz_per_1k
+      notes: For demonstration only
+

@@ -1,0 +1,22 @@
+name: Primo MAXX
+epa_reg_no: 100-937
+type: pgr
+label_pdf_url: https://www3.epa.gov/pesticides/chem_search/ppls/000100-000937-latest.pdf
+signal_word: CAUTION
+rup: false
+aliases:
+  - primo
+  - primo maxx
+  - primo_maxx
+rates:
+  model: gdd10
+  target_gdd: 200
+  method: spray
+  rainfast_hours: 0.5
+  hoc_ranges:
+    - hoc_max_in: 1.0
+      rate_min: 0.25
+      rate_max: 0.5
+      rate_unit: fl_oz_per_1k
+      notes: Manufacturer label guidance varies by turf condition.
+

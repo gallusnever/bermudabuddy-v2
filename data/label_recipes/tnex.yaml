@@ -1,0 +1,20 @@
+name: T-Nex 1L
+epa_reg_no: 91585-4
+type: pgr
+label_pdf_url: https://www3.epa.gov/pesticides/chem_search/ppls/091585-00004-20200206.pdf
+signal_word: CAUTION
+rup: false
+aliases:
+  - tnex
+  - t-nex
+rates:
+  model: gdd10
+  target_gdd: 200
+  method: spray
+  rainfast_hours: 0.5
+  hoc_ranges:
+    - hoc_max_in: 1.0
+      rate_min: 0.5
+      rate_max: 1.0
+      rate_unit: fl_oz_per_1k
+      notes: Lower rates for turf under stress

@@ -1,0 +1,32 @@
+# Node / Next.js
+node_modules/
+.next/
+out/
+.vercel/
+
+# Env & secrets
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+.pytest_cache/
+.venv/
+*.pyc
+
+# Playwright
+playwright-report/
+test-results/
+e2e/screenshots/
+e2e/traces/
+
+# OS
+.DS_Store
+
+# Misc
+dist/
+coverage/
+*.log
+*.sqlite
+*.db

@@ -1,0 +1,8 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+if command -v commitlint >/dev/null 2>&1; then
+  commitlint --edit "$1"
+else
+  echo "commitlint not installed; skipping conventional commit check."
+fi

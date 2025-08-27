@@ -1,0 +1,17 @@
+name: Prodiamine 65 WDG
+epa_reg_no: 70506-200
+type: herb
+label_pdf_url: https://www.cdrex.com/pdf/Prodiamine-65-WDG-Label-25145.pdf
+signal_word: CAUTION
+rup: false
+aliases:
+  - prodiamine
+rates:
+  method: spray
+  rainfast_hours: 0.0
+  hoc_ranges:
+    - hoc_max_in: 2.0
+      rate_min: 0.185
+      rate_max: 0.83
+      rate_unit: oz_per_1k
+      notes: Pre-emergent, split applications recommended per label

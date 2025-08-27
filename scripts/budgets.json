@@ -1,0 +1,8 @@
+{
+  "defaultKB": 200,
+  "overrides": {
+    "/onboarding": 600,
+    "app/onboarding": 600
+  }
+}
+

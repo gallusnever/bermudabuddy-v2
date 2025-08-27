@@ -1,0 +1,15 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import 'mapbox-gl/dist/mapbox-gl.css';
+@import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
+
+html, body {
+  background-color: rgb(var(--bb-bg));
+}
+
+.frosted {
+  backdrop-filter: blur(8px) saturate(120%);
+  background-color: rgba(24, 27, 31, 0.65);
+}
