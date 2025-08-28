@@ -63,7 +63,7 @@
      pnpm start -- -p $PORT -H 0.0.0.0
      ```
 
-4. Environment Variables:
+4. Environment Variables (**CRITICAL - Must be set BEFORE build**):
    ```
    NODE_VERSION=20
    NEXT_PUBLIC_API_BASE=https://bermudabuddy-api.onrender.com
@@ -71,6 +71,8 @@
    NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlwc2pzZm9uendleWtydWVvcmV0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTYxNzYxNjYsImV4cCI6MjA3MTc1MjE2Nn0.wSnJ6-Tni2ZmosowC8F71YW5mHTg5_ftY5kLdGmXws8
    NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1IjoiZ2FsbHVzbmV2ZXIiLCJhIjoiY21lM2pwd2lqMDg4ZDJtcHo1OTI1cmRqOCJ9.693--g8-cRTuQolbuY0npA
    ```
+   
+   **⚠️ IMPORTANT**: These MUST be set in Render BEFORE the first build! Next.js bakes NEXT_PUBLIC_ variables into the build at compile time.
    
    **Important**: Do NOT set `NEXT_PUBLIC_E2E_AUTH_BYPASS` in production
 

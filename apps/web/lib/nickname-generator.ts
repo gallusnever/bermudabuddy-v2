@@ -13,9 +13,11 @@ export interface NicknameContext {
   issues?: string[];
 }
 
+import config from './config';
+
 export async function generateBudNickname(context: NicknameContext): Promise<string> {
   try {
-    const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+    const apiBase = config.apiBase;
     console.log('[Nickname] Using API base:', apiBase);
     
     // Add timeout to prevent hanging forever
