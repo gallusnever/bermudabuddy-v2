@@ -17,122 +17,33 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
-
     try {
-      const { data, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (authError) {
-        throw authError;
-      }
-
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+      if (authError) throw authError;
       if (data.user) {
-        console.log('Login successful, fetching profile for:', data.user.email);
-        
-        // Add timeout for profile fetch
-        const profileTimeout = setTimeout(() => {
-          console.warn('Profile fetch timed out, redirecting with basic info');
-          localStorage.setItem('bb_onboarding_complete', 'true');
-          localStorage.setItem('bb_onboarding', JSON.stringify({
-            account: { 
-              nickname: 'LawnWarrior',
-              email: data.user.email 
-            }
-          }));
-          router.push('/dashboard');
-        }, 5000);
-        
-        // Try to get the user's profile with all their lawn data
-        try {
-          const { data: profile, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', data.user.id)
-            .maybeSingle(); // Use maybeSingle instead of single to avoid error if no profile exists
-
-          clearTimeout(profileTimeout);
-          console.log('Profile fetch result:', { profile, profileError });
-
-          if (profile) {
-            // User has a profile - store all their data
-            localStorage.setItem('bb_onboarding_complete', 'true');
-            
-            // Store the full profile data for the app to use
-            const onboardingData = {
-              account: { 
-                nickname: profile.nickname || 'LawnWarrior',
-                email: data.user.email,
-                firstName: profile.first_name,
-                lastName: profile.last_name
-              },
-              location: {
-                city: profile.city,
-                state: profile.state,
-                zip: profile.zip,
-                area: profile.area_sqft
-              },
-              equipment: {
-                hoc: profile.hoc,
-                mower: profile.mower,
-                irrigation: profile.irrigation,
-                sprayer: profile.sprayer
-              },
-              grass: {
-                type: profile.grass_type
-              }
-            };
-            
-            localStorage.setItem('bb_onboarding', JSON.stringify(onboardingData));
-            console.log('Profile loaded, redirecting to dashboard with data:', onboardingData);
-            router.push('/dashboard');
-          } else {
-            // No profile exists - create a basic one
-            console.log('No profile found, creating basic profile');
-            
-            const { data: newProfile, error: createError } = await supabase
+        // Immediately mark onboarding as complete so middleware allows protected routes
+        try { localStorage.setItem('bb_onboarding_complete', 'true'); } catch {}
+        try { document.cookie = `bb_onboarding_complete=true; Path=/; Max-Age=31536000`; } catch {}
+        router.push('/dashboard');
+        // Non-blocking profile bootstrap
+        (async () => {
+          try {
+            const { data: profile } = await supabase
               .from('profiles')
-              .insert({
-                id: data.user.id,
-                email: data.user.email,
-                nickname: 'LawnWarrior',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-              })
-              .select()
+              .select('*')
+              .eq('id', data.user!.id)
               .maybeSingle();
-
-            if (newProfile) {
-              localStorage.setItem('bb_onboarding_complete', 'true');
-              localStorage.setItem('bb_onboarding', JSON.stringify({
-                account: { 
-                  nickname: 'LawnWarrior',
-                  email: data.user.email 
-                }
-              }));
-              console.log('Basic profile created, redirecting to dashboard');
-              router.push('/dashboard');
-            } else {
-              // If profile creation fails, still let them in but suggest onboarding
-              console.error('Profile creation failed:', createError);
-              localStorage.setItem('bb_onboarding_complete', 'false');
-              router.push('/onboarding');
+            if (!profile) {
+              await supabase
+                .from('profiles')
+                .insert({ id: data.user!.id, email: data.user!.email, nickname: 'LawnWarrior', created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+                .select()
+                .maybeSingle();
             }
+          } catch (e) {
+            console.warn('Profile bootstrap failed (non-blocking):', e);
           }
-        } catch (err) {
-          clearTimeout(profileTimeout);
-          console.error('Error fetching/creating profile:', err);
-          // On error, still log them in but suggest completing profile
-          localStorage.setItem('bb_onboarding_complete', 'true');
-          localStorage.setItem('bb_onboarding', JSON.stringify({
-            account: { 
-              nickname: 'LawnWarrior',
-              email: data.user.email 
-            }
-          }));
-          router.push('/dashboard');
-        }
+        })();
       }
     } catch (error: any) {
       console.error('Sign in failed:', error);
