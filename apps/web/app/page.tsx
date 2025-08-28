@@ -18,17 +18,14 @@ export default function HomePage() {
       if (user && profile?.nickname) {
         // User is authenticated and has completed onboarding
         setOnboardingComplete(true);
-        localStorage.setItem('bb_onboarding_complete', 'true');
-        localStorage.setItem('bb_onboarding', JSON.stringify({
-          account: { nickname: profile.nickname }
-        }));
+        // Mark complete, do NOT overwrite onboarding payload here (AuthContext merges richer data)
+        try { localStorage.setItem('bb_onboarding_complete', 'true'); } catch {}
       } else if (user && !profile?.nickname) {
         // User is authenticated but hasn't completed onboarding
         setOnboardingComplete(false);
       } else {
-        // No authenticated user - check localStorage for non-auth users
-        const complete = localStorage.getItem('bb_onboarding_complete') === 'true';
-        setOnboardingComplete(complete);
+        // No authenticated user - don't trust localStorage alone
+        setOnboardingComplete(false);
       }
     }
   }, [user, profile, loading]);

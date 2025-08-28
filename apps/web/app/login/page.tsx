@@ -21,29 +21,38 @@ export default function LoginPage() {
       const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
       if (authError) throw authError;
       if (data.user) {
-        // Immediately mark onboarding as complete so middleware allows protected routes
-        try { localStorage.setItem('bb_onboarding_complete', 'true'); } catch {}
-        try { document.cookie = `bb_onboarding_complete=true; Path=/; Max-Age=31536000`; } catch {}
-        router.push('/dashboard');
-        // Non-blocking profile bootstrap
-        (async () => {
-          try {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', data.user!.id)
-              .maybeSingle();
-            if (!profile) {
-              await supabase
-                .from('profiles')
-                .insert({ id: data.user!.id, email: data.user!.email, nickname: 'LawnWarrior', created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
-                .select()
-                .maybeSingle();
-            }
-          } catch (e) {
-            console.warn('Profile bootstrap failed (non-blocking):', e);
-          }
-        })();
+        // First check if user has a profile with nickname
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .maybeSingle();
+        
+        if (!profile) {
+          // Create default profile if none exists
+          await supabase
+            .from('profiles')
+            .insert({ 
+              id: data.user.id, 
+              email: data.user.email, 
+              nickname: 'LawnWarrior', 
+              created_at: new Date().toISOString(), 
+              updated_at: new Date().toISOString() 
+            })
+            .select()
+            .maybeSingle();
+        }
+        
+        // Only set onboarding complete if user has a nickname
+        if (profile?.nickname) {
+          try { localStorage.setItem('bb_onboarding_complete', 'true'); } catch {}
+          try { document.cookie = `bb_onboarding_complete=true; Path=/; Max-Age=31536000`; } catch {}
+          // Navigate to dashboard
+          router.push('/dashboard');
+        } else {
+          // User exists but no nickname - send to onboarding
+          router.push('/onboarding');
+        }
       }
     } catch (error: any) {
       console.error('Sign in failed:', error);
