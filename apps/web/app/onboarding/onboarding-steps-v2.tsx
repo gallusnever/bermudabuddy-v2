@@ -125,6 +125,13 @@ export function PropertyLocationStep({ locationData, onNext }: { locationData: a
       if (data.features && data.features.length > 0) {
         const [lng, lat] = data.features[0].center;
         mapInstance.current.flyTo({ center: [lng, lat], zoom: 17, essential: true });
+        // Store coordinates in location data
+        if (locationData) {
+          locationData.lat = lat;
+          locationData.lon = lng;
+          locationData.latitude = lat;
+          locationData.longitude = lng;
+        }
       }
     } catch (error) {
       console.error('Geocoding error:', error);
@@ -138,10 +145,17 @@ export function PropertyLocationStep({ locationData, onNext }: { locationData: a
       Math.round(turf.area(geojson) * 10.764) : // Convert m² to ft²
       area; // Use area from step 2
     
+    // Get current map center as user's coordinates
+    const center = mapInstance.current?.getCenter();
+    
     onNext({ 
       area: mapArea,
       geojson, 
-      zones: drawMode === 'zones' ? zones : [] 
+      zones: drawMode === 'zones' ? zones : [],
+      lat: center?.lat || locationData.lat,
+      lon: center?.lng || locationData.lon,
+      longitude: center?.lng || locationData.lon,
+      latitude: center?.lat || locationData.lat
     });
   };
   
@@ -501,7 +515,6 @@ export function EquipmentStep({ onNext, onBack }: { onNext: (data: any) => void;
 // Step 3: Current Lawn Status & Issues
 export function LawnStatusStep({ onNext, onBack, locationData }: { onNext: (data: any) => void; onBack: () => void; locationData: any }) {
   const [lawnAge, setLawnAge] = useState('');
-  const [bermudaType, setBermudaType] = useState('');
   const [lastSoilTest, setLastSoilTest] = useState('');
   const [shade, setShade] = useState('');
   const [issues, setIssues] = useState<string[]>([]);
@@ -523,11 +536,11 @@ export function LawnStatusStep({ onNext, onBack, locationData }: { onNext: (data
   ];
   
   const handleNext = () => {
-    if (!lawnAge || !bermudaType || !shade || issues.length === 0) {
+    if (!lawnAge || !shade || issues.length === 0) {
       alert('Please fill in all fields');
       return;
     }
-    onNext({ lawnAge, bermudaType, lastSoilTest, shade, issues, primaryConcern });
+    onNext({ lawnAge, lastSoilTest, shade, issues, primaryConcern });
   };
   
   return (
@@ -552,19 +565,6 @@ export function LawnStatusStep({ onNext, onBack, locationData }: { onNext: (data
                 <option value="establishing">Establishing (1-3 years)</option>
                 <option value="mature">Mature (3+ years)</option>
                 <option value="unknown">Not sure</option>
-              </Select>
-            </div>
-            
-            <div>
-              <label className="block text-sm mb-2 font-medium">Bermuda Type (if known)</label>
-              <Select value={bermudaType} onChange={(e) => setBermudaType(e.target.value)}>
-                <option value="">Select type...</option>
-                <option value="common">Common Bermuda</option>
-                <option value="419">Tifway 419</option>
-                <option value="celebration">Celebration</option>
-                <option value="tiftuf">TifTuf</option>
-                <option value="arden15">Arden 15</option>
-                <option value="unknown">Don't know</option>
               </Select>
             </div>
             

@@ -55,19 +55,22 @@ export default function DashboardPage() {
       const parts = [profile?.city, profile?.state].filter(Boolean);
       if (parts.length) return parts.join(', ');
     }
-    return 'Dallas, TX';
+    return 'Location not set';
   }, [profile?.city, profile?.state]);
 
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
-        const s = await fetch(apiUrl('/api/weather/summary?lat=32.78&lon=-96.80&hours=24')).then(r => r.json());
+        // Use actual user location from profile, fallback to Broken Arrow if not set
+        const lat = profile?.lat || profile?.latitude || 36.0526; // Broken Arrow, OK
+        const lon = profile?.lon || profile?.longitude || -95.7909;
+        const s = await fetch(apiUrl(`/api/weather/summary?lat=${lat}&lon=${lon}&hours=24`)).then(r => r.json());
         setSummary(s);
         const temps = (s.hourlies || []).map((r: any) => r.t_air_f).filter((v: any) => typeof v === 'number');
         const g = gddFromHourly(temps, gddModel);
         setGddToday(g);
-        const ok = await fetch(apiUrl(`/api/weather/ok-to-spray?lat=32.78&lon=-96.80&hours=12&wind_source=${windSource}`)).then(r => r.json());
+        const ok = await fetch(apiUrl(`/api/weather/ok-to-spray?lat=${lat}&lon=${lon}&hours=12&wind_source=${windSource}`)).then(r => r.json());
         setOkRows(ok.table || []);
       } catch (e) {
         setOkRows([]);

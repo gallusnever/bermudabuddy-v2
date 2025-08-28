@@ -74,7 +74,16 @@ export default function OnboardingPage() {
     setOnboardingData(prev => ({ 
       ...prev, 
       zones: data.zones || [],
-      grass: data.grass || {}
+      grass: data.grass || {},
+      // Merge coordinates into location data
+      location: {
+        ...prev.location,
+        lat: data.lat || data.latitude,
+        lon: data.lon || data.longitude,
+        latitude: data.latitude || data.lat,
+        longitude: data.longitude || data.lon,
+        area: data.area || prev.location.area
+      }
     }));
     setCurrentStep(4);
   };
