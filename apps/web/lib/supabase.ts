@@ -18,19 +18,29 @@ export interface UserProfile {
   id: string;
   email?: string;
   full_name?: string;
+  first_name?: string;
+  last_name?: string;
+  nickname?: string;
   address?: string;
   city?: string;
   state?: string;
   zip?: string;
+  lat?: number;
+  lon?: number;
+  latitude?: number;  // Alias for compatibility
+  longitude?: number; // Alias for compatibility
   area_sqft?: number;
+  grass_type?: string;
   hoc?: number;
   mower?: string;
+  sprayer?: string;
   irrigation?: string;
   program?: string;
   user_level?: string;
   product_source?: string;
   application_method?: string;
   lawn_issues?: string[];
+  age_verified?: boolean;
   disclaimer_accepted?: boolean;
   created_at?: string;
   updated_at?: string;

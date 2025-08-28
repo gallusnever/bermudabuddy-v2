@@ -22,7 +22,7 @@ export async function generateBudNickname(context: NicknameContext): Promise<str
     
     // Add timeout to prevent hanging forever
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
     
     const url = `${apiBase}/api/nickname`;
     console.log('[Nickname] Calling:', url);
@@ -54,7 +54,7 @@ export async function generateBudNickname(context: NicknameContext): Promise<str
     }
   } catch (error: any) {
     if (error.name === 'AbortError') {
-      console.warn('[Nickname] Request timed out after 5s, using fallback');
+      console.warn('[Nickname] Request timed out after 20s, using fallback');
     } else {
       console.error('[Nickname] Request failed:', error.message);
     }

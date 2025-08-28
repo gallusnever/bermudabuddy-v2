@@ -4,6 +4,7 @@ import { Button, Input } from '@bermuda/ui';
 import BudSays from '../../components/bud-says';
 import { supabase } from '../../lib/supabase';
 import { generateUniqueNickname, NicknameContext } from '../../lib/nickname-generator';
+import { useAuth } from '../../contexts/auth-context';
 
 interface AccountNicknameStepProps {
   locationData: any;
@@ -22,6 +23,7 @@ export function AccountNicknameStep({
   onNext, 
   onBack 
 }: AccountNicknameStepProps) {
+  const { refreshProfile } = useAuth();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
@@ -137,25 +139,31 @@ export function AccountNicknameStep({
 
         if (profileError) {
           console.error('[Profile] Save failed:', profileError);
-        } else {
-          console.log('[Profile] Successfully saved profile with coordinates:', {
-            lat: locationData.lat || locationData.latitude,
-            lon: locationData.lon || locationData.lng || locationData.longitude
-          });
+          throw new Error(`Failed to save profile: ${profileError.message}`);
         }
-      }
+        
+        console.log('[Profile] Successfully saved profile with coordinates:', {
+          lat: locationData.lat || locationData.latitude,
+          lon: locationData.lon || locationData.lng || locationData.longitude
+        });
 
-      // Pass data forward
-      const accountData = {
-        firstName,
-        lastName,
-        email,
-        nickname,
-        userId: authData.user?.id
-      };
-      
-      onUpdate(accountData);
-      onNext(accountData);
+        // Refresh the profile in auth context to get the saved data
+        await refreshProfile();
+        
+        // Pass data forward ONLY if profile saved successfully
+        const accountData = {
+          firstName,
+          lastName,
+          email,
+          nickname,
+          userId: authData.user?.id
+        };
+        
+        onUpdate(accountData);
+        onNext(accountData);
+      } else {
+        throw new Error('No user ID available after authentication');
+      }
     } catch (error: any) {
       console.error('Account creation failed:', error);
       setErrors({ 

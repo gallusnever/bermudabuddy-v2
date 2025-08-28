@@ -11,6 +11,7 @@ interface AuthContextType {
   signUp: (email: string, password: string) => Promise<any>;
   signOut: () => Promise<any>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<any>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -178,6 +179,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function refreshProfile() {
+    if (!user) {
+      console.warn('[Auth] Cannot refresh profile - no user logged in');
+      return;
+    }
+    console.log('[Auth] Refreshing profile for user:', user.id);
+    await fetchProfile(user.id);
+  }
+
   const value = {
     user,
     profile,
@@ -186,6 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signUp,
     signOut,
     updateProfile,
+    refreshProfile,
   };
 
   return (

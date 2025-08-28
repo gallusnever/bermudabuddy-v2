@@ -200,7 +200,7 @@ async def api_generate_nickname(payload: NicknameRequest) -> Dict[str, str]:
     headers = {
         "Authorization": f"Bearer {key}",
         "Content-Type": "application/json",
-        "HTTP-Referer": os.getenv("OPENROUTER_HTTP_REFERER", "http://localhost:3001"),
+        "HTTP-Referer": os.getenv("OPENROUTER_HTTP_REFERER", "https://bermudabuddy-v2.onrender.com"),
         "X-Title": os.getenv("OPENROUTER_TITLE", "Bud Nickname Generator"),
     }
 
@@ -348,7 +348,7 @@ async def api_program(req: ProgramRequest) -> Dict[str, Any]:
         headers = {
             "Authorization": f"Bearer {key}",
             "Content-Type": "application/json",
-            "HTTP-Referer": os.getenv("OPENROUTER_HTTP_REFERER", "http://localhost:3001"),
+            "HTTP-Referer": os.getenv("OPENROUTER_HTTP_REFERER", "https://bermudabuddy-v2.onrender.com"),
             "X-Title": os.getenv("OPENROUTER_TITLE", "Bud Program Generator"),
         }
         async with httpx.AsyncClient(timeout=30) as client:
