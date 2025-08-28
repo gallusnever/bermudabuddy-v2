@@ -78,33 +78,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.error('Error fetching profile:', error);
       } else if (data) {
         setProfile(data);
-        // Also update localStorage with the profile data
-        const onboardingData = {
-          account: { 
-            nickname: data.nickname || 'LawnWarrior',
-            email: data.email,
-            firstName: data.first_name,
-            lastName: data.last_name
-          },
-          location: {
-            city: data.city,
-            state: data.state,
-            zip: data.zip,
-            area: data.area_sqft
-          },
-          equipment: {
-            hoc: data.hoc,
-            mower: data.mower,
-            irrigation: data.irrigation,
-            sprayer: data.sprayer
-          },
-          grass: {
-            type: data.grass_type
+        // Merge profile into local onboarding cache without nuking existing keys
+        try {
+          const existing = JSON.parse(localStorage.getItem('bb_onboarding') || '{}');
+          const merged = {
+            ...existing,
+            account: {
+              ...(existing.account || {}),
+              nickname: data.nickname || existing?.account?.nickname || 'LawnWarrior',
+              email: data.email || existing?.account?.email,
+              firstName: data.first_name || existing?.account?.firstName,
+              lastName: data.last_name || existing?.account?.lastName,
+            },
+            location: {
+              ...(existing.location || {}),
+              address: (data as any).address || existing?.location?.address,
+              city: (data as any).city || existing?.location?.city,
+              state: (data as any).state || existing?.location?.state,
+              zip: (data as any).zip || existing?.location?.zip,
+              area: (data as any).area_sqft ?? existing?.location?.area,
+            },
+            equipment: {
+              ...(existing.equipment || {}),
+              hoc: (data as any).hoc ?? existing?.equipment?.hoc,
+              mower: (data as any).mower || existing?.equipment?.mower,
+              irrigation: (data as any).irrigation || existing?.equipment?.irrigation,
+              sprayer: (data as any).sprayer || existing?.equipment?.sprayer,
+            },
+            grass: {
+              ...(existing.grass || {}),
+              type: (data as any).grass_type || existing?.grass?.type,
+            },
+          };
+          localStorage.setItem('bb_onboarding', JSON.stringify(merged));
+          if (data.nickname) {
+            try { localStorage.setItem('bb_onboarding_complete', 'true'); } catch {}
+            try { document.cookie = `bb_onboarding_complete=true; Path=/; Max-Age=31536000`; } catch {}
           }
-        };
-        localStorage.setItem('bb_onboarding', JSON.stringify(onboardingData));
-        if (data.nickname) {
-          localStorage.setItem('bb_onboarding_complete', 'true');
+        } catch (e) {
+          // Fallback to minimal write
+          const onboardingData = {
+            account: { nickname: data.nickname || 'LawnWarrior', email: data.email, firstName: (data as any).first_name, lastName: (data as any).last_name },
+            location: { address: (data as any).address, city: (data as any).city, state: (data as any).state, zip: (data as any).zip, area: (data as any).area_sqft },
+            equipment: { hoc: (data as any).hoc, mower: (data as any).mower, irrigation: (data as any).irrigation, sprayer: (data as any).sprayer },
+            grass: { type: (data as any).grass_type },
+          };
+          localStorage.setItem('bb_onboarding', JSON.stringify(onboardingData));
+          if (data.nickname) localStorage.setItem('bb_onboarding_complete', 'true');
         }
       } else {
         setProfile(null);

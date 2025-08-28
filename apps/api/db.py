@@ -8,6 +8,9 @@ from sqlalchemy.orm import Session
 
 def get_db_url() -> str:
     url = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
+    # Normalize Render-style URLs like postgres:// to SQLAlchemy psycopg driver
+    if url and url.startswith("postgres://"):
+        url = url.replace("postgres://", "postgresql+psycopg://", 1)
     if not url:
       raise RuntimeError("POSTGRES_URL is required for DB access")
     return url

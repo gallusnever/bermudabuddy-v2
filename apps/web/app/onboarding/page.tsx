@@ -145,7 +145,8 @@ export default function OnboardingPage() {
   // Step 7: Final/Disclaimer
   const handleComplete = async () => {
     // Save everything and redirect to dashboard
-    localStorage.setItem('bb_onboarding_complete', 'true');
+    try { localStorage.setItem('bb_onboarding_complete', 'true'); } catch {}
+    try { document.cookie = `bb_onboarding_complete=true; Path=/; Max-Age=31536000`; } catch {}
     router.push('/dashboard');
   };
 

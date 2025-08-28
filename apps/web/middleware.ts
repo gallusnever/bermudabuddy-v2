@@ -16,23 +16,10 @@ export function middleware(req: NextRequest) {
     return response;
   }
   
-  // Honor bypass in E2E when env flag is present
-  if (process.env.NEXT_PUBLIC_E2E_AUTH_BYPASS === "1" || req.cookies.get("bb_e2e")?.value === "1") {
-    // Still check for onboarding completion even in bypass mode
-    const onboardingData = req.cookies.get("bb_onboarding_complete");
-    if (!onboardingData && !req.url.includes("/onboarding")) {
-      return NextResponse.redirect(new URL("/onboarding", req.url));
-    }
-    return NextResponse.next();
-  }
-  
-  // Real auth check would go here
-  if (!req.cookies.get("session")) {
-    return NextResponse.redirect(new URL("/login", req.url));
-  }
-  
-  // Check if onboarding is complete
+  // Honor bypass in E2E when env flag is present or testing cookie is set
+  const bypass = process.env.NEXT_PUBLIC_E2E_AUTH_BYPASS === "1" || req.cookies.get("bb_e2e")?.value === "1";
   const onboardingComplete = req.cookies.get("bb_onboarding_complete");
+  // Gate protected routes by onboarding completion only (client manages auth via Supabase)
   if (!onboardingComplete && !req.url.includes("/onboarding")) {
     return NextResponse.redirect(new URL("/onboarding", req.url));
   }
