@@ -68,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function fetchProfile(userId: string) {
     try {
+      console.log('[Auth] Fetching profile for user:', userId);
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -75,8 +76,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle(); // Use maybeSingle to avoid error if no profile exists
       
       if (error) {
-        console.error('Error fetching profile:', error);
+        console.error('[Auth] Profile fetch error:', error);
       } else if (data) {
+        console.log('[Auth] Profile loaded:', data);
         setProfile(data);
         // Merge profile into local onboarding cache without nuking existing keys
         try {

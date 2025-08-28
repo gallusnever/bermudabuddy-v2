@@ -106,6 +106,10 @@ export function AccountNicknameStep({
 
       // Update profile with all data
       if (authData.user) {
+        console.log('[Profile] Saving profile for user:', authData.user.id);
+        console.log('[Profile] Location data:', locationData);
+        console.log('[Profile] Equipment data:', equipmentData);
+        
         const { error: profileError } = await supabase
           .from('profiles')
           .upsert({
@@ -131,7 +135,14 @@ export function AccountNicknameStep({
             updated_at: new Date().toISOString()
           });
 
-        if (profileError) console.error('Profile update error:', profileError);
+        if (profileError) {
+          console.error('[Profile] Save failed:', profileError);
+        } else {
+          console.log('[Profile] Successfully saved profile with coordinates:', {
+            lat: locationData.lat || locationData.latitude,
+            lon: locationData.lon || locationData.lng || locationData.longitude
+          });
+        }
       }
 
       // Pass data forward

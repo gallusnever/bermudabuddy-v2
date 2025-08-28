@@ -16,12 +16,16 @@ export interface NicknameContext {
 export async function generateBudNickname(context: NicknameContext): Promise<string> {
   try {
     const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+    console.log('[Nickname] Using API base:', apiBase);
     
     // Add timeout to prevent hanging forever
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
     
-    const response = await fetch(`${apiBase}/api/nickname`, {
+    const url = `${apiBase}/api/nickname`;
+    console.log('[Nickname] Calling:', url);
+    
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(context),
@@ -31,20 +35,30 @@ export async function generateBudNickname(context: NicknameContext): Promise<str
     clearTimeout(timeoutId);
     
     if (!response.ok) {
-      console.warn('Nickname API returned error, using fallback');
-      throw new Error('Nickname API error');
+      console.warn('[Nickname] API returned error:', response.status, response.statusText);
+      throw new Error(`Nickname API error: ${response.status}`);
     }
     
     const data = await response.json();
+    console.log('[Nickname] API response:', data);
     const nickname = (data?.nickname || '').toString().trim().replace(/[^a-zA-Z0-9]/g, '').substring(0, 30);
-    return nickname || generateFallbackNickname(context.firstName, context.state, context.hoc);
+    
+    if (nickname) {
+      console.log('[Nickname] Using API nickname:', nickname);
+      return nickname;
+    } else {
+      console.log('[Nickname] No nickname in response, using fallback');
+      return generateFallbackNickname(context.firstName, context.state, context.hoc);
+    }
   } catch (error: any) {
     if (error.name === 'AbortError') {
-      console.warn('Nickname generation timed out, using fallback');
+      console.warn('[Nickname] Request timed out after 5s, using fallback');
     } else {
-      console.error('Nickname generation failed:', error);
+      console.error('[Nickname] Request failed:', error.message);
     }
-    return generateFallbackNickname(context.firstName, context.state, context.hoc);
+    const fallback = generateFallbackNickname(context.firstName, context.state, context.hoc);
+    console.log('[Nickname] Using fallback nickname:', fallback);
+    return fallback;
   }
 }
 

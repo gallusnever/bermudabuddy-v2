@@ -65,6 +65,7 @@ export default function DashboardPage() {
         // Use actual user location from profile, fallback to Broken Arrow if not set
         const lat = profile?.lat || profile?.latitude || 36.0526; // Broken Arrow, OK
         const lon = profile?.lon || profile?.longitude || -95.7909;
+        console.log('[Dashboard] Using coordinates:', { lat, lon, profile });
         const s = await fetch(apiUrl(`/api/weather/summary?lat=${lat}&lon=${lon}&hours=24`)).then(r => r.json());
         setSummary(s);
         const temps = (s.hourlies || []).map((r: any) => r.t_air_f).filter((v: any) => typeof v === 'number');

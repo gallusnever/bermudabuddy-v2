@@ -36,7 +36,11 @@ export function PropertyLocationStep({ locationData, onNext }: { locationData: a
   
   useEffect(() => {
     const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN as string | undefined;
+    console.log('[Map] Mapbox token available:', !!token);
+    console.log('[Map] Map container ready:', !!mapRef.current);
+    
     if (!token || !mapRef.current) {
+      console.error('[Map] Cannot initialize - token:', !!token, 'container:', !!mapRef.current);
       setMapReady(false);
       return;
     }
