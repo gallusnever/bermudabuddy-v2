@@ -16,17 +16,34 @@ export interface NicknameContext {
 export async function generateBudNickname(context: NicknameContext): Promise<string> {
   try {
     const apiBase = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:8000';
+    
+    // Add timeout to prevent hanging forever
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+    
     const response = await fetch(`${apiBase}/api/nickname`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(context),
+      signal: controller.signal
     });
-    if (!response.ok) throw new Error('Nickname API error');
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      console.warn('Nickname API returned error, using fallback');
+      throw new Error('Nickname API error');
+    }
+    
     const data = await response.json();
     const nickname = (data?.nickname || '').toString().trim().replace(/[^a-zA-Z0-9]/g, '').substring(0, 30);
     return nickname || generateFallbackNickname(context.firstName, context.state, context.hoc);
-  } catch (error) {
-    console.error('Nickname generation failed:', error);
+  } catch (error: any) {
+    if (error.name === 'AbortError') {
+      console.warn('Nickname generation timed out, using fallback');
+    } else {
+      console.error('Nickname generation failed:', error);
+    }
     return generateFallbackNickname(context.firstName, context.state, context.hoc);
   }
 }

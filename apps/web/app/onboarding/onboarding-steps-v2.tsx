@@ -5,6 +5,8 @@ import { useState, useRef, useEffect } from 'react';
 import mapboxgl from 'mapbox-gl';
 import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import * as turf from '@turf/turf';
+import 'mapbox-gl/dist/mapbox-gl.css';
+import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
 
 // Step 3: Property Map & Zone Mapping (using location from step 2)
 export function PropertyLocationStep({ locationData, onNext }: { locationData: any; onNext: (data: any) => void }) {
