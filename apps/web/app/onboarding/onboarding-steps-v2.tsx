@@ -7,6 +7,7 @@ import MapboxDraw from '@mapbox/mapbox-gl-draw';
 import * as turf from '@turf/turf';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css';
+import config from '../../lib/config';
 
 // Step 3: Property Map & Zone Mapping (using location from step 2)
 export function PropertyLocationStep({ locationData, onNext }: { locationData: any; onNext: (data: any) => void }) {
@@ -41,8 +42,8 @@ export function PropertyLocationStep({ locationData, onNext }: { locationData: a
       return;
     }
 
-    // Get token directly - it's baked in at build time
-    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+    // Get token from config which was set at build time
+    const token = config.mapboxToken;
     console.log('[Map] Mapbox token available:', !!token);
     console.log('[Map] Token first 10 chars:', token?.substring(0, 10));
     
@@ -134,7 +135,7 @@ export function PropertyLocationStep({ locationData, onNext }: { locationData: a
   async function geocodeAddress() {
     if (!address || !city || !state) return;
     const fullAddress = `${address}, ${city}, ${state} ${zip}`;
-    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+    const token = config.mapboxToken;
     if (!token || !mapInstance.current) return;
     
     try {
