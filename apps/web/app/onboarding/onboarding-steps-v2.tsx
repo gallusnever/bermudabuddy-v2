@@ -21,6 +21,7 @@ export function PropertyLocationStep({ locationData, onNext }: { locationData: a
   const [zones, setZones] = useState<any[]>([]);
   const [currentZoneName, setCurrentZoneName] = useState('Front Yard');
   const [drawMode, setDrawMode] = useState<'single' | 'zones'>('single');
+  const [coordinates, setCoordinates] = useState<{lat?: number; lng?: number}>({});
   
   const mapRef = useRef<HTMLDivElement | null>(null);
   const [mapReady, setMapReady] = useState(false);
@@ -153,13 +154,9 @@ export function PropertyLocationStep({ locationData, onNext }: { locationData: a
       if (data.features && data.features.length > 0) {
         const [lng, lat] = data.features[0].center;
         mapInstance.current.flyTo({ center: [lng, lat], zoom: 17, essential: true });
-        // Store coordinates in location data
-        if (locationData) {
-          locationData.lat = lat;
-          locationData.lon = lng;
-          locationData.latitude = lat;
-          locationData.longitude = lng;
-        }
+        // Store coordinates in state
+        setCoordinates({ lat, lng });
+        console.log('[Map] Geocoded coordinates:', { lat, lng });
       }
     } catch (error) {
       console.error('Geocoding error:', error);
@@ -180,10 +177,10 @@ export function PropertyLocationStep({ locationData, onNext }: { locationData: a
       area: mapArea,
       geojson, 
       zones: drawMode === 'zones' ? zones : [],
-      lat: center?.lat || locationData.lat,
-      lon: center?.lng || locationData.lon,
-      longitude: center?.lng || locationData.lon,
-      latitude: center?.lat || locationData.lat
+      lat: coordinates.lat || center?.lat,
+      lon: coordinates.lng || center?.lng,
+      longitude: coordinates.lng || center?.lng,
+      latitude: coordinates.lat || center?.lat
     });
   };
   
