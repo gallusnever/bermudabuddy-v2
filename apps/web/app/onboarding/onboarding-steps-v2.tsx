@@ -35,19 +35,25 @@ export function PropertyLocationStep({ locationData, onNext }: { locationData: a
   }, [state]);
   
   useEffect(() => {
-    // Import config at runtime to get token
-    import('../../lib/config').then(({ default: config }) => {
-      const token = config.mapboxToken;
-      console.log('[Map] Mapbox token available:', !!token);
-      console.log('[Map] Token first 10 chars:', token?.substring(0, 10));
-      console.log('[Map] Map container ready:', !!mapRef.current);
-      
-      if (!token || !mapRef.current) {
-        console.error('[Map] Cannot initialize - missing token or container');
-        setMapReady(false);
-        return;
-      }
-      
+    // Get token directly from env
+    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+    console.log('[Map] Mapbox token available:', !!token);
+    console.log('[Map] Token first 10 chars:', token?.substring(0, 10));
+    console.log('[Map] Map container ready:', !!mapRef.current);
+    
+    if (!token) {
+      console.error('[Map] No Mapbox token available!');
+      setMapReady(false);
+      return;
+    }
+    
+    if (!mapRef.current) {
+      console.error('[Map] Map container not ready');
+      setMapReady(false);
+      return;
+    }
+    
+    try {
       (mapboxgl as any).accessToken = token;
       const map = new (mapboxgl as any).Map({
         container: mapRef.current!,
@@ -102,7 +108,14 @@ export function PropertyLocationStep({ locationData, onNext }: { locationData: a
           updateArea();
         }
       });
-      map.on('load', () => setMapReady(true));
+      map.on('load', () => {
+        console.log('[Map] Successfully loaded!');
+        setMapReady(true);
+      });
+      
+      map.on('error', (e: any) => {
+        console.error('[Map] Mapbox error:', e);
+      });
       
       mapInstance.current = map;
       drawRef.current = Draw;
@@ -110,7 +123,10 @@ export function PropertyLocationStep({ locationData, onNext }: { locationData: a
       return () => {
         try { map.remove(); } catch {}
       };
-    });
+    } catch (error) {
+      console.error('[Map] Failed to initialize Mapbox:', error);
+      setMapReady(false);
+    }
   }, []);
   
   // Auto-center map on address when map is ready
@@ -123,8 +139,7 @@ export function PropertyLocationStep({ locationData, onNext }: { locationData: a
   async function geocodeAddress() {
     if (!address || !city || !state) return;
     const fullAddress = `${address}, ${city}, ${state} ${zip}`;
-    const { default: config } = await import('../../lib/config');
-    const token = config.mapboxToken;
+    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
     if (!token || !mapInstance.current) return;
     
     try {
