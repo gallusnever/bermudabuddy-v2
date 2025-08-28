@@ -33,12 +33,25 @@ NEXT_PUBLIC_MAPBOX_TOKEN: ${config.mapboxToken ? '✅ SET' : '❌ MISSING'}
       <button 
         onClick={async () => {
           const apiBase = config.apiBase || 'http://localhost:8000';
+          console.log('Testing API at:', apiBase);
           try {
-            const res = await fetch(`${apiBase}/healthz`);
+            const res = await fetch(`${apiBase}/healthz`, {
+              method: 'GET',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              mode: 'cors',
+            });
+            
+            if (!res.ok) {
+              throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+            
             const data = await res.json();
-            alert(`API Response: ${JSON.stringify(data, null, 2)}`);
+            alert(`✅ API Response: ${JSON.stringify(data, null, 2)}`);
           } catch (err: any) {
-            alert(`API Error: ${err.message}`);
+            console.error('API Test Error:', err);
+            alert(`❌ API Error: ${err.message}\n\nCheck browser console for details.\n\nThis is likely a CORS issue if you see "Load failed"`);
           }
         }}
         style={{ 
@@ -55,9 +68,48 @@ NEXT_PUBLIC_MAPBOX_TOKEN: ${config.mapboxToken ? '✅ SET' : '❌ MISSING'}
       </button>
 
       <h2>Test Mapbox:</h2>
+      <button
+        onClick={() => {
+          const token = config.mapboxToken;
+          if (!token) {
+            alert('No Mapbox token available!');
+            return;
+          }
+          
+          // Test if we can reach Mapbox API
+          fetch(`https://api.mapbox.com/styles/v1/mapbox/streets-v11?access_token=${token}`)
+            .then(res => {
+              if (res.ok) {
+                alert('✅ Mapbox API is accessible! Token is valid.');
+              } else {
+                alert(`❌ Mapbox API error: ${res.status} ${res.statusText}`);
+              }
+            })
+            .catch(err => {
+              alert(`❌ Cannot reach Mapbox: ${err.message}`);
+            });
+        }}
+        style={{ 
+          background: '#00f', 
+          color: '#fff', 
+          padding: '10px 20px', 
+          fontSize: '16px',
+          cursor: 'pointer',
+          border: 'none',
+          borderRadius: '4px',
+          marginBottom: '20px'
+        }}
+      >
+        Test Mapbox Token
+      </button>
+      
       <div id="test-map" style={{ width: '100%', height: '400px', background: '#333', marginTop: '20px' }}>
         {config.mapboxToken ? (
-          <div>Token is set. If map doesn't load, check browser console for errors.</div>
+          <div style={{ padding: '20px', color: '#0f0' }}>
+            Token is set: {config.mapboxToken.substring(0, 30)}...<br/><br/>
+            Click "Test Mapbox Token" above to verify it works.<br/><br/>
+            If token test passes but map is grey, it's a initialization issue.
+          </div>
         ) : (
           <div style={{ color: 'red', padding: '20px' }}>
             ❌ MAPBOX TOKEN IS NOT SET IN BUILD!<br/>
