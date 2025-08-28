@@ -28,7 +28,7 @@
    - **Runtime**: Python 3
    - **Build Command**: 
      ```bash
-     pip install -r apps/api/requirements.txt && cd apps/api && alembic upgrade head
+     pip install -r apps/api/requirements.txt
      ```
    - **Start Command**: 
      ```bash
@@ -40,10 +40,10 @@
    DATABASE_URL=<Internal Database URL from PostgreSQL service>
    OPENROUTER_API_KEY=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
    NWS_USER_AGENT=BermudaBuddy/1.0 (ronbowers214@gmail.com)
-   CORS_ORIGINS=https://bermudabuddy-web.onrender.com,http://localhost:3001
+   CORS_ORIGINS=https://bermudabuddy-v2.onrender.com,http://localhost:3001
    ```
    
-5. Note the service URL (e.g., `https://bermudabuddy-api.onrender.com`)
+5. Note the service URL (e.g., `https://bermudabuddy-api.onrender.com`) https://bermudabuddy-api.onrender.com
 
 ## Service 3: Web (Next.js Frontend)
 1. Create New > Web Service
@@ -74,7 +74,7 @@
    
    **Important**: Do NOT set `NEXT_PUBLIC_E2E_AUTH_BYPASS` in production
 
-5. Note the service URL (e.g., `https://bermudabuddy-web.onrender.com`)
+5. Note the service URL (e.g., `https://bermudabuddy-web.onrender.com`) https://bermudabuddy-v2.onrender.com
 
 ## Post-Deployment Steps
 
@@ -83,7 +83,7 @@ After both services are deployed:
 1. Go to API service settings
 2. Update `CORS_ORIGINS` environment variable to include your Web service URL:
    ```
-   CORS_ORIGINS=https://bermudabuddy-web.onrender.com
+   CORS_ORIGINS=https://bermudabuddy-v2.onrender.com
    ```
 3. Redeploy the API service
 
