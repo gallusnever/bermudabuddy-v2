@@ -35,98 +35,101 @@ export function PropertyLocationStep({ locationData, onNext }: { locationData: a
   }, [state]);
   
   useEffect(() => {
-    // Get token directly from env
-    const token = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
-    console.log('[Map] Mapbox token available:', !!token);
-    console.log('[Map] Token first 10 chars:', token?.substring(0, 10));
-    console.log('[Map] Map container ready:', !!mapRef.current);
-    
-    if (!token) {
-      console.error('[Map] No Mapbox token available!');
-      setMapReady(false);
-      return;
-    }
-    
     if (!mapRef.current) {
       console.error('[Map] Map container not ready');
-      setMapReady(false);
       return;
     }
-    
-    try {
-      (mapboxgl as any).accessToken = token;
-      const map = new (mapboxgl as any).Map({
-        container: mapRef.current!,
-        style: 'mapbox://styles/mapbox/satellite-streets-v12',
-        center: [-96.8, 32.78],
-        zoom: 12,
-      });
-    
-      const Draw = new (MapboxDraw as any)({ 
-        displayControlsDefault: false, 
-        controls: { polygon: true, trash: true },
-      });
+
+    // Import config to get the token that was baked in at build time
+    import('../../lib/config').then(({ default: config }) => {
+      const token = config.mapboxToken || process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+      console.log('[Map] Mapbox token available:', !!token);
+      console.log('[Map] Token first 10 chars:', token?.substring(0, 10));
       
-      map.addControl(Draw);
-      map.addControl(new (mapboxgl as any).NavigationControl(), 'top-right');
+      if (!token) {
+        console.error('[Map] No Mapbox token available!');
+        setMapReady(false);
+        return;
+      }
       
-      const updateArea = () => {
-        try {
-          const data = Draw.getAll();
-          if (!data.features.length) return;
-          
-          if (drawMode === 'single') {
-            const meters = turf.area(data.features[0] as any);
-            const sqft = meters * 10.7639;
-            setArea(Math.round(sqft));
-          } else {
-            // Multiple zones mode
-            let totalArea = 0;
-            const newZones = data.features.map((feature: any, idx: number) => {
-              const meters = turf.area(feature);
+      if (!mapRef.current) {
+        console.error('[Map] Container disappeared during async load');
+        return;
+      }
+      
+      try {
+        (mapboxgl as any).accessToken = token;
+        const map = new (mapboxgl as any).Map({
+          container: mapRef.current!,
+          style: 'mapbox://styles/mapbox/satellite-streets-v12',
+          center: [-96.8, 32.78],
+          zoom: 12,
+        });
+    
+        const Draw = new (MapboxDraw as any)({ 
+          displayControlsDefault: false, 
+          controls: { polygon: true, trash: true },
+        });
+        
+        map.addControl(Draw);
+        map.addControl(new (mapboxgl as any).NavigationControl(), 'top-right');
+        
+        const updateArea = () => {
+          try {
+            const data = Draw.getAll();
+            if (!data.features.length) return;
+            
+            if (drawMode === 'single') {
+              const meters = turf.area(data.features[0] as any);
               const sqft = meters * 10.7639;
-              totalArea += sqft;
-              return {
-                id: feature.id,
-                name: zones[idx]?.name || `Zone ${idx + 1}`,
-                area: Math.round(sqft),
-                geojson: feature
-              };
-            });
-            setZones(newZones);
-            setArea(Math.round(totalArea));
+              setArea(Math.round(sqft));
+            } else {
+              // Multiple zones mode
+              let totalArea = 0;
+              const newZones = data.features.map((feature: any, idx: number) => {
+                const meters = turf.area(feature);
+                const sqft = meters * 10.7639;
+                totalArea += sqft;
+                return {
+                  id: feature.id,
+                  name: zones[idx]?.name || `Zone ${idx + 1}`,
+                  area: Math.round(sqft),
+                  geojson: feature
+                };
+              });
+              setZones(newZones);
+              setArea(Math.round(totalArea));
+            }
+          } catch {}
+        };
+      
+        map.on('draw.create', updateArea);
+        map.on('draw.update', updateArea);
+        map.on('draw.delete', () => {
+          if (drawMode === 'single') {
+            setArea('');
+          } else {
+            updateArea();
           }
-        } catch {}
-      };
-      
-      map.on('draw.create', updateArea);
-      map.on('draw.update', updateArea);
-      map.on('draw.delete', () => {
-        if (drawMode === 'single') {
-          setArea('');
-        } else {
-          updateArea();
-        }
-      });
-      map.on('load', () => {
-        console.log('[Map] Successfully loaded!');
-        setMapReady(true);
-      });
-      
-      map.on('error', (e: any) => {
-        console.error('[Map] Mapbox error:', e);
-      });
-      
-      mapInstance.current = map;
-      drawRef.current = Draw;
-      
-      return () => {
-        try { map.remove(); } catch {}
-      };
-    } catch (error) {
-      console.error('[Map] Failed to initialize Mapbox:', error);
-      setMapReady(false);
-    }
+        });
+        map.on('load', () => {
+          console.log('[Map] Successfully loaded!');
+          setMapReady(true);
+        });
+        
+        map.on('error', (e: any) => {
+          console.error('[Map] Mapbox error:', e);
+        });
+        
+        mapInstance.current = map;
+        drawRef.current = Draw;
+      } catch (error) {
+        console.error('[Map] Failed to initialize Mapbox:', error);
+        setMapReady(false);
+      }
+    }).catch(err => {
+      console.error('[Map] Failed to load config:', err);
+    });
   }, []);
   
   // Auto-center map on address when map is ready
