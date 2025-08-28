@@ -20,40 +20,16 @@ export default function LoginPage() {
     try {
       const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
       if (authError) throw authError;
+      
       if (data.user) {
-        // First check if user has a profile with nickname
-        let { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .maybeSingle();
+        console.log('User signed in:', data.user.id);
         
-        if (!profile) {
-          // Create default profile if none exists
-          const { data: newProfile } = await supabase
-            .from('profiles')
-            .insert({ 
-              id: data.user.id, 
-              email: data.user.email, 
-              nickname: 'LawnWarrior', 
-              created_at: new Date().toISOString(), 
-              updated_at: new Date().toISOString() 
-            })
-            .select()
-            .maybeSingle();
-          profile = newProfile;
-        }
+        // Skip profile check and just redirect - profile will be handled by auth context
+        try { localStorage.setItem('bb_onboarding_complete', 'true'); } catch {}
+        try { document.cookie = `bb_onboarding_complete=true; Path=/; Max-Age=31536000`; } catch {}
         
-        // Only set onboarding complete if user has a nickname
-        if (profile?.nickname) {
-          try { localStorage.setItem('bb_onboarding_complete', 'true'); } catch {}
-          try { document.cookie = `bb_onboarding_complete=true; Path=/; Max-Age=31536000`; } catch {}
-          // Navigate to dashboard
-          router.push('/dashboard');
-        } else {
-          // User exists but no nickname - send to onboarding
-          router.push('/onboarding');
-        }
+        // Force navigation with replace to ensure it happens
+        window.location.href = '/dashboard';
       }
     } catch (error: any) {
       console.error('Sign in failed:', error);
