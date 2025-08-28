@@ -22,7 +22,7 @@ export default function LoginPage() {
       if (authError) throw authError;
       if (data.user) {
         // First check if user has a profile with nickname
-        const { data: profile } = await supabase
+        let { data: profile } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', data.user.id)
@@ -30,7 +30,7 @@ export default function LoginPage() {
         
         if (!profile) {
           // Create default profile if none exists
-          await supabase
+          const { data: newProfile } = await supabase
             .from('profiles')
             .insert({ 
               id: data.user.id, 
@@ -41,6 +41,7 @@ export default function LoginPage() {
             })
             .select()
             .maybeSingle();
+          profile = newProfile;
         }
         
         // Only set onboarding complete if user has a nickname
