@@ -1,8 +1,11 @@
 "use client";
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '../../contexts/auth-context';
 import { apiUrl } from '../../lib/api';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Chip, Drawer, Input, Select, Tooltip, Checkbox, Icons } from '@bermuda/ui';
 import BudSays, { getRandomTip } from '../../components/bud-says';
+import { OnboardingGate } from '../../components/onboarding-gate';
 
 type RateUnit = 'oz_per_1k' | 'lb_per_1k' | 'oz_per_acre' | 'lb_per_acre' | 'fl_oz_per_gal' | 'percent_vv';
 
@@ -76,6 +79,8 @@ function walesBuckets(products: Product[]) {
 }
 
 export default function MixBuilderPage() {
+  const router = useRouter();
+  const { profile } = useAuth();
   const [selectedIds, setSelectedIds] = useState<string[]>(['tenex']);
   const [area, setArea] = useState<number>(5000);
   const [carrier, setCarrier] = useState<number>(1.0);
@@ -87,6 +92,7 @@ export default function MixBuilderPage() {
   const [saving, setSaving] = useState(false);
   const [lastBatchId, setLastBatchId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [showOnboardingBanner, setShowOnboardingBanner] = useState(false);
 
   const products = useMemo(() => PRODUCTS.filter(p => selectedIds.includes(p.id)), [selectedIds]);
   const [labelLinks, setLabelLinks] = useState<Record<string, string | undefined>>({});
@@ -140,9 +146,13 @@ export default function MixBuilderPage() {
   async function doSave() {
     if (hasRup || !allHaveLabel) return;
     setSaveError(null);
-    const pid = typeof window !== 'undefined' ? window.localStorage.getItem('bb_property_id') : null;
-    if (!pid) {
-      setSaveError('Complete onboarding to save applications');
+    setShowOnboardingBanner(false);
+    
+    // Try profile first, then localStorage
+    const propertyId = profile?.property_id ?? (typeof window !== 'undefined' ? Number(localStorage.getItem('bb_property_id')) : null);
+    
+    if (!propertyId) {
+      setShowOnboardingBanner(true);
       return;
     }
     setSaving(true);
@@ -152,7 +162,7 @@ export default function MixBuilderPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          property_id: Number(pid),
+          property_id: propertyId,
           area_sqft: area,
           carrier_gpa: carrier,
           tank_size_gal: tank,
@@ -164,11 +174,11 @@ export default function MixBuilderPage() {
         const body = await res.json();
         if (body?.batch_id) {
           setLastBatchId(body.batch_id);
-          const url = `/mix/print?batch_id=${encodeURIComponent(body.batch_id)}`;
-          window.open(url, '_blank');
-        } else {
-          alert('Application saved');
         }
+        setSaveError('Application saved! Redirecting...');
+        setTimeout(() => {
+          router.push('/applications');
+        }, 1000);
       } else {
         const err = await res.json().catch(() => ({}));
         alert('Failed to save: ' + (err.error || res.status));
@@ -186,6 +196,8 @@ export default function MixBuilderPage() {
 
   return (
     <main className="container mx-auto max-w-6xl px-6 py-8">
+      {showOnboardingBanner && <OnboardingGate />}
+      
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <h1 className="text-2xl font-semibold">Mix Builder</h1>
         <Button variant="ghost" onClick={() => setJarOpen(true)} className="w-full sm:w-auto">
@@ -282,7 +294,7 @@ export default function MixBuilderPage() {
                 <Button className="w-full sm:w-auto" disabled={!allHaveLabel || hasRup || saving} onClick={doSave}>{saving ? 'Saving…' : 'Save Application'}</Button>
                 {!allHaveLabel && <div className="text-xs text-muted">Provide label links to enable saving.</div>}
                 {hasRup && <div className="text-xs text-muted">RUP present — not saved for non‑licensed users.</div>}
-                {saveError && <div className="text-xs text-red-500">{saveError}</div>}
+                {saveError && <div className={`text-xs ${saveError.includes('saved') ? 'text-green-500' : 'text-red-500'}`}>{saveError}</div>}
                 {lastBatchId && (
                   <a className="underline text-sm" href={`/mix/print?batch_id=${encodeURIComponent(lastBatchId)}`} target="_blank" rel="noreferrer">Print Batch</a>
                 )}

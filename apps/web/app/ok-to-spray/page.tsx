@@ -18,12 +18,38 @@ type HourRow = {
 
 export default function OkToSprayPage() {
   const { profile } = useAuth();
+  const [searchParams, setSearchParamsState] = useState<URLSearchParams | null>(null);
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<HourRow[]>([]);
   const [source, setSource] = useState<{ provider: string; station?: any } | null>(null);
   const [property, setProperty] = useState<any>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [pendingAutoOpen, setPendingAutoOpen] = useState(false);
 
+  // Helper to check if timestamp is current hour
+  const isCurrentHour = (ts: string) => {
+    const t = new Date(ts);
+    const n = new Date();
+    return t.getFullYear() === n.getFullYear() && t.getMonth() === n.getMonth() &&
+           t.getDate() === n.getDate() && t.getHours() === n.getHours();
+  };
+
+  function resolveCoords() {
+    // strict priority: profile.lat/lon → profile.latitude/longitude → property.lat/lon
+    if (profile?.lat != null && profile?.lon != null) return { lat: profile.lat, lon: profile.lon };
+    if (profile?.latitude != null && profile?.longitude != null) return { lat: profile.latitude, lon: profile.longitude };
+    if (property?.lat != null && property?.lon != null) return { lat: property.lat, lon: property.lon };
+    return null;
+  }
+
+  // on mount, note we should auto-open
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    setSearchParamsState(params);
+    if (params.get('open') === '1') setPendingAutoOpen(true);
+    
     // Load property data if available
     const propertyId = localStorage.getItem('bb_property_id');
     if (propertyId) {
@@ -34,15 +60,67 @@ export default function OkToSprayPage() {
     }
   }, []);
 
-  async function fetchTable() {
-    // Priority: profile coords > property coords > fallback
-    const lat = profile?.lat ?? profile?.latitude ?? property?.lat ?? 36.0526;
-    const lon = profile?.lon ?? profile?.longitude ?? property?.lon ?? -95.7909;
-    const res = await fetch(apiUrl(`/api/weather/ok-to-spray?lat=${lat}&lon=${lon}&hours=12`));
-    const data = await res.json();
-    setRows(data.table);
-    setSource(data.source);
-    setOpen(true);
+  // when coords are finally available, auto-fetch once
+  useEffect(() => {
+    if (!pendingAutoOpen) return;
+    const c = resolveCoords();
+    if (c) {
+      fetchTable(c.lat, c.lon);
+      setPendingAutoOpen(false);
+    }
+  }, [pendingAutoOpen, profile?.lat, profile?.lon, profile?.latitude, profile?.longitude, property?.lat, property?.lon]);
+
+  // Get display location for the button
+  function getDisplayLocation() {
+    if (profile?.city && profile?.state) {
+      return `${profile.city}, ${profile.state}`;
+    }
+    if (property?.city && property?.state) {
+      return `${property.city}, ${property.state}`;
+    }
+    const lat = profile?.lat ?? profile?.latitude ?? property?.lat;
+    const lon = profile?.lon ?? profile?.longitude ?? property?.lon;
+    if (lat && lon) {
+      return `${lat.toFixed(2)}°, ${lon.toFixed(2)}°`;
+    }
+    return null;
+  }
+
+  async function fetchTable(latOverride?: number, lonOverride?: number) {
+    setIsLoading(true);
+    setFetchError(null);
+    
+    try {
+      const coords = latOverride != null && lonOverride != null ? { lat: latOverride, lon: lonOverride } : (resolveCoords() ?? { lat: 36.0526, lon: -95.7909 });
+      console.log('[OK-to-Spray] Fetching with coords:', coords, 'Source:', latOverride != null ? 'override' : resolveCoords() ? 'resolved' : 'fallback');
+      
+      const res = await fetch(apiUrl(`/api/weather/ok-to-spray?lat=${coords.lat}&lon=${coords.lon}&hours=12`));
+      if (!res.ok) {
+        throw new Error(`Weather service error: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      if (!data.table || !Array.isArray(data.table)) {
+        throw new Error('Invalid response from weather service');
+      }
+      
+      // Anchor to now - only show current and future hours
+      const nowMs = Date.now();
+      const next12 = Array.isArray(data.table)
+        ? data.table
+            .filter((r:any) => Number(new Date(r.ts)) >= nowMs)
+            .slice(0, 12)
+        : [];
+      setRows(next12);
+      setSource(data.source);
+      setOpen(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to fetch spray window data';
+      setFetchError(message);
+      console.error('Error fetching spray window:', error);
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -67,8 +145,31 @@ export default function OkToSprayPage() {
               <span className="cursor-help">Hourly rules: wind 3–10 mph; gust &lt; 15 mph; no rain in next hour and &lt; 20% probability.</span>
             </Tooltip>
           </p>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <Button className="w-full sm:w-auto" onClick={fetchTable}>Fetch for Dallas, TX</Button>
+          
+          {fetchError && (
+            <div className="mb-4 p-3 bg-red-900/20 border-l-4 border-red-600 rounded">
+              <div className="flex items-center gap-2">
+                <Icons.AlertTriangle className="w-4 h-4 text-red-400" />
+                <span className="text-sm text-red-400">{fetchError}</span>
+              </div>
+            </div>
+          )}
+          
+          <div className="flex flex-col sm:flex-row gap-3 items-start">
+            <div>
+              <Button 
+                className="w-full sm:w-auto" 
+                onClick={() => fetchTable()}
+                disabled={isLoading}
+              >
+                {isLoading ? 'Fetching…' : 'Fetch spray window'}
+              </Button>
+              {getDisplayLocation() && (
+                <div className="text-xs text-muted mt-1">
+                  Location: {getDisplayLocation()}
+                </div>
+              )}
+            </div>
             {source && (
               <Chip>
                 Provider: {source.provider}
@@ -113,6 +214,7 @@ export default function OkToSprayPage() {
                 ${r.status === 'OK' ? 'border-l-4 border-emerald-600' : ''}
                 ${r.status === 'CAUTION' ? 'border-l-4 border-amber-600' : ''}
                 ${r.status === 'NOT_OK' ? 'border-l-4 border-red-600 opacity-75' : ''}
+                ${isCurrentHour(r.ts) ? 'bg-emerald-600/5 ring-1 ring-emerald-600/20' : ''}
               `}>
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">

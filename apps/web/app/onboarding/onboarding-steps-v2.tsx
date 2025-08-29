@@ -346,7 +346,7 @@ export function EquipmentStep({ onNext, onBack }: { onNext: (data: any) => void;
           <div className="grid gap-4 md:grid-cols-2">
             <div className="md:col-span-2">
               <label className="block text-sm mb-2 font-medium">Bermuda Grass Variety</label>
-              <Select value={grassType} onChange={(e) => setGrassType(e.target.value)}>
+              <Select value={grassType} onChange={(e) => { setGrassType(e.target.value); setErrors(prev => ({...prev, grassType: ''})); }}>
                 <option value="">Select your variety...</option>
                 <option value="common">Common Bermuda - The OG</option>
                 <option value="tifway419">Tifway 419 - Golf course classic</option>
@@ -360,10 +360,11 @@ export function EquipmentStep({ onNext, onBack }: { onNext: (data: any) => void;
                 <option value="monaco">Monaco - Putting green quality</option>
                 <option value="unknown">Not sure - Let's figure it out</option>
               </Select>
+              {errors.grassType && <span className="text-red-500 text-xs mt-1">{errors.grassType}</span>}
             </div>
             <div>
               <label className="block text-sm mb-2 font-medium">Mower Type</label>
-              <Select value={mower} onChange={(e) => setMower(e.target.value)}>
+              <Select value={mower} onChange={(e) => { setMower(e.target.value); setErrors(prev => ({...prev, mower: ''})); }}>
                 <option value="">Select your mower...</option>
                 <option value="push-rotary">Push Rotary - The workout special</option>
                 <option value="self-propelled">Self-Propelled Rotary - Smart choice</option>
@@ -372,24 +373,27 @@ export function EquipmentStep({ onNext, onBack }: { onNext: (data: any) => void;
                 <option value="reel-powered">Powered Reel - You're serious</option>
                 <option value="robot">Robot - Living in 2050</option>
               </Select>
+              {errors.mower && <span className="text-red-500 text-xs mt-1">{errors.mower}</span>}
             </div>
             
             <div>
               <label className="block text-sm mb-2 font-medium">Height of Cut (inches)</label>
               <Input type="number" step="0.1" placeholder="0.75" value={hoc as any} 
-                onChange={(e) => setHoc(e.target.value ? Number(e.target.value) : '')} />
+                onChange={(e) => { setHoc(e.target.value ? Number(e.target.value) : ''); setErrors(prev => ({...prev, hoc: ''})); }} />
               <div className="text-xs text-muted mt-1">Lower = better for Bermuda (0.5-1.0" ideal)</div>
+              {errors.hoc && <span className="text-red-500 text-xs">{errors.hoc}</span>}
             </div>
             
             <div>
               <label className="block text-sm mb-2 font-medium">Irrigation System</label>
-              <Select value={irrigation} onChange={(e) => setIrrigation(e.target.value)}>
+              <Select value={irrigation} onChange={(e) => { setIrrigation(e.target.value); setErrors(prev => ({...prev, irrigation: ''})); }}>
                 <option value="">Select irrigation...</option>
                 <option value="none">None - Rain dancing only</option>
                 <option value="hose">Hose & sprinkler - Manual mode</option>
                 <option value="auto">In-ground automatic - Set and forget</option>
                 <option value="smart">Smart controller - Weather-based</option>
               </Select>
+              {errors.irrigation && <span className="text-red-500 text-xs mt-1">{errors.irrigation}</span>}
             </div>
             
             {sprayer === 'none' || !sprayer ? (
@@ -443,7 +447,7 @@ export function EquipmentStep({ onNext, onBack }: { onNext: (data: any) => void;
             
             <div>
               <label className="block text-sm mb-2 font-medium">Monthly Budget for Products</label>
-              <Select value={monthlyBudget} onChange={(e) => setMonthlyBudget(e.target.value)}>
+              <Select value={monthlyBudget} onChange={(e) => { setMonthlyBudget(e.target.value); setErrors(prev => ({...prev, monthlyBudget: ''})); }}>
                 <option value="">How much for lawn products?</option>
                 <option value="50">Under $50/mo - Just the basics</option>
                 <option value="100">$50-100/mo - Room to experiment</option>
@@ -457,7 +461,7 @@ export function EquipmentStep({ onNext, onBack }: { onNext: (data: any) => void;
             
             <div>
               <label className="block text-sm mb-2 font-medium">Time Available (per week)</label>
-              <Select value={weeklyTime} onChange={(e) => setWeeklyTime(e.target.value)}>
+              <Select value={weeklyTime} onChange={(e) => { setWeeklyTime(e.target.value); setErrors(prev => ({...prev, weeklyTime: ''})); }}>
                 <option value="">Select time...</option>
                 <option value="2">Less than 2 hours</option>
                 <option value="5">2-5 hours</option>
@@ -465,6 +469,7 @@ export function EquipmentStep({ onNext, onBack }: { onNext: (data: any) => void;
                 <option value="15">10-15 hours</option>
                 <option value="unlimited">It's my main hobby</option>
               </Select>
+              {errors.weeklyTime && <span className="text-red-500 text-xs mt-1">{errors.weeklyTime}</span>}
             </div>
           </div>
 

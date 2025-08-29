@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useAuth } from '../../contexts/auth-context';
 
 export default function SettingsPage() {
-  const { user, profile, updateProfile } = useAuth();
+  const { user, profile, updateProfile, refreshProfile } = useAuth();
   const [form, setForm] = useState({
     grass_type: '',
     hoc: '',
@@ -43,8 +43,15 @@ export default function SettingsPage() {
     };
     if (form.sprayer) payload.sprayer = form.sprayer;
     const { error } = await updateProfile(payload);
+    
+    if (!error) {
+      // Refresh profile to update dashboard
+      await refreshProfile();
+      setSaved('Settings saved successfully!');
+    } else {
+      setSaved('Error saving settings');
+    }
     setSaving(false);
-    setSaved(error ? 'Error saving settings' : 'Saved');
   }
 
   if (!user) {

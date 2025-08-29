@@ -108,7 +108,7 @@ export default function NavBar() {
         style={{
           backgroundImage: 'url(/bermudaheader.jpg)',
           backgroundSize: 'cover',
-          backgroundPosition: scrolled ? 'center 85%' : 'center 72%',
+          backgroundPosition: scrolled ? 'center 85%' : 'center 75%',
           backgroundRepeat: 'no-repeat',
           boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
         }}

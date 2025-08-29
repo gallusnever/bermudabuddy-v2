@@ -1,9 +1,11 @@
 "use client";
 import { useEffect, useMemo, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, Chip, Badge, Button, Icons, Tooltip } from '@bermuda/ui';
+import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Icons, Tooltip } from '@bermuda/ui';
 import { apiUrl } from '../../lib/api';
 import BudSays from '../../components/bud-says';
 import { LogApplicationForm } from '../../components/log-application-form';
+import { useAuth } from '../../contexts/auth-context';
+import { supabase } from '../../lib/supabase';
 
 type ApplicationRow = {
   id: number;
@@ -15,20 +17,48 @@ type ApplicationRow = {
 };
 
 export default function ApplicationsPage() {
+  const { profile } = useAuth();
   const [rows, setRows] = useState<ApplicationRow[]>([]);
   const [pid, setPid] = useState<string | null>(null);
   const [showApplicationForm, setShowApplicationForm] = useState(false);
+  const [hasProperty, setHasProperty] = useState<boolean>(false);
 
   useEffect(() => {
     async function load() {
-      const p = localStorage.getItem('bb_property_id');
-      setPid(p);
-      if (!p) return;
-      const r = await fetch(apiUrl(`/api/properties/${p}/applications`)).then(res => res.json());
-      setRows(r || []);
+      // Check multiple sources for property
+      const localPid = typeof window !== 'undefined' ? localStorage.getItem('bb_property_id') : null;
+      
+      if (profile?.property_id || localPid) {
+        setHasProperty(true);
+        const propertyId = profile?.property_id || localPid;
+        setPid(propertyId);
+        
+        if (propertyId) {
+          const r = await fetch(apiUrl(`/api/properties/${propertyId}/applications`)).then(res => res.json());
+          setRows(r || []);
+        }
+        return;
+      }
+      
+      // Optional fallback check with auth (ignore errors)
+      (async () => {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          const headers: Record<string,string> = { 'Content-Type': 'application/json' };
+          if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+          const resp = await fetch(apiUrl('/api/properties?mine=1'), { headers });
+          if (resp.ok) {
+            const arr = await resp.json();
+            if (Array.isArray(arr) && arr.length > 0) {
+              setHasProperty(true);
+              setPid(String(arr[0].id));
+            }
+          }
+        } catch {}
+      })();
     }
     load();
-  }, []);
+  }, [profile?.property_id]);
 
   const groups = useMemo(() => {
     const map = new Map<string, ApplicationRow[]>();
@@ -55,7 +85,7 @@ export default function ApplicationsPage() {
           <span className="cursor-help text-xs bb-card px-1.5 py-0.5 rounded">?</span>
         </Tooltip>
       </h1>
-      {!pid && (
+      {!hasProperty && (
         <div className="p-4 bb-card border-l-4 border-amber-600">
           <div className="flex items-start gap-3">
             <img src="/bud-close.png" alt="Bud" className="w-10 h-10 rounded-full" />
@@ -69,7 +99,7 @@ export default function ApplicationsPage() {
           </div>
         </div>
       )}
-      {pid && (
+      {hasProperty && pid && (
         <Card className="bb-clay">
           <CardHeader><CardTitle className="flex items-center gap-2"><Icons.MapPin /> Property #{pid}</CardTitle></CardHeader>
           <CardContent>

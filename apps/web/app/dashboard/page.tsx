@@ -396,7 +396,7 @@ export default function DashboardPage() {
                   {okRows?.[0]?.status ?? '—'}
                 </Badge>
               )}
-              <Button variant="ghost" onClick={() => router.push('/ok-to-spray')}>Open hourly table</Button>
+              <Button variant="ghost" onClick={() => router.push('/ok-to-spray?open=1')}>Open hourly table</Button>
               <select className="bb-input" value={windSource} onChange={(e) => setWindSource(e.target.value as any)} aria-label="Wind Source">
                 <option value="openmeteo">OpenMeteo</option>
                 <option value="nws">NWS (winds)</option>
