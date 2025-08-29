@@ -291,7 +291,7 @@ export function EquipmentStep({ onNext, onBack }: { onNext: (data: any) => void;
   const [mower, setMower] = useState('');
   const [hoc, setHoc] = useState<number | ''>('');
   const [irrigation, setIrrigation] = useState('');
-  const [spreader, setSpreader] = useState('');
+  const [spreader, setSpreader] = useState('broadcast'); // Default to broadcast
   const [sprayer, setSprayer] = useState('');
   const [monthlyBudget, setMonthlyBudget] = useState('');
   const [weeklyTime, setWeeklyTime] = useState('');
@@ -303,12 +303,27 @@ export function EquipmentStep({ onNext, onBack }: { onNext: (data: any) => void;
     ph: '',
     organic: ''
   });
+  const [errors, setErrors] = useState<{[key: string]: string}>({});
   
   const handleNext = () => {
-    if (!grassType || !mower || !hoc || !irrigation || !monthlyBudget || !weeklyTime) {
-      alert('Please fill in all required fields');
+    const newErrors: {[key: string]: string} = {};
+    
+    if (!grassType) newErrors.grassType = 'Select your grass type';
+    if (!mower) newErrors.mower = 'Select your mower type';
+    if (!hoc) newErrors.hoc = 'Enter your height of cut';
+    if (!irrigation) newErrors.irrigation = 'Select your irrigation type';
+    if (!monthlyBudget) newErrors.monthlyBudget = 'Enter your monthly budget';
+    if (!weeklyTime) newErrors.weeklyTime = 'Enter your weekly time commitment';
+    
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      // Scroll to first error
+      const firstError = document.querySelector('.text-red-500');
+      if (firstError) firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
+    
+    setErrors({});
     onNext({ 
       grassType, mower, hoc, irrigation, spreader, sprayer, 
       monthlyBudget, weeklyTime, soilTestDone, soilTestResults 

@@ -86,6 +86,7 @@ export default function MixBuilderPage() {
   const [jarOpen, setJarOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [lastBatchId, setLastBatchId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const products = useMemo(() => PRODUCTS.filter(p => selectedIds.includes(p.id)), [selectedIds]);
   const [labelLinks, setLabelLinks] = useState<Record<string, string | undefined>>({});
@@ -138,9 +139,10 @@ export default function MixBuilderPage() {
 
   async function doSave() {
     if (hasRup || !allHaveLabel) return;
+    setSaveError(null);
     const pid = typeof window !== 'undefined' ? window.localStorage.getItem('bb_property_id') : null;
     if (!pid) {
-      alert('Please complete onboarding and save your property first.');
+      setSaveError('Complete onboarding to save applications');
       return;
     }
     setSaving(true);
@@ -280,6 +282,7 @@ export default function MixBuilderPage() {
                 <Button className="w-full sm:w-auto" disabled={!allHaveLabel || hasRup || saving} onClick={doSave}>{saving ? 'Saving…' : 'Save Application'}</Button>
                 {!allHaveLabel && <div className="text-xs text-muted">Provide label links to enable saving.</div>}
                 {hasRup && <div className="text-xs text-muted">RUP present — not saved for non‑licensed users.</div>}
+                {saveError && <div className="text-xs text-red-500">{saveError}</div>}
                 {lastBatchId && (
                   <a className="underline text-sm" href={`/mix/print?batch_id=${encodeURIComponent(lastBatchId)}`} target="_blank" rel="noreferrer">Print Batch</a>
                 )}

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle, Chip, Drawer, Input, Tooltip, Icons } from '@bermuda/ui';
 import { apiUrl } from '../../lib/api';
 import { gddFromHourly, GddModel } from '../../lib/gdd';
@@ -28,6 +29,7 @@ type Summary = {
 
 export default function DashboardPage() {
   const { user, profile, refreshProfile } = useAuth();
+  const router = useRouter();
   const [summary, setSummary] = useState<Summary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -394,7 +396,7 @@ export default function DashboardPage() {
                   {okRows?.[0]?.status ?? '—'}
                 </Badge>
               )}
-              <Button variant="ghost" onClick={() => setDrawerOpen(true)}>Open hourly table</Button>
+              <Button variant="ghost" onClick={() => router.push('/ok-to-spray')}>Open hourly table</Button>
               <select className="bb-input" value={windSource} onChange={(e) => setWindSource(e.target.value as any)} aria-label="Wind Source">
                 <option value="openmeteo">OpenMeteo</option>
                 <option value="nws">NWS (winds)</option>

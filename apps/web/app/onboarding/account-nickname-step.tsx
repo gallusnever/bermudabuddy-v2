@@ -200,6 +200,12 @@ export function AccountNicknameStep({
           if (prop?.id) {
             localStorage.setItem('bb_property_id', String(prop.id));
             
+            // Also save property_id to profile
+            await supabase
+              .from('profiles')
+              .update({ property_id: prop.id })
+              .eq('id', authData.user.id);
+            
             // Insert polygons if zones exist
             if (Array.isArray(statusData?.zones) && statusData.zones.length) {
               for (const z of statusData.zones) {

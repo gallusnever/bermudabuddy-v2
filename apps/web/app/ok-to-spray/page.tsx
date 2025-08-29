@@ -1,5 +1,5 @@
 "use client";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { apiUrl } from '../../lib/api';
 import { Button, Card, CardContent, CardHeader, CardTitle, Drawer, Chip, Badge, Icons, Tooltip } from '@bermuda/ui';
 import BudSays, { getRandomTip } from '../../components/bud-says';
@@ -21,10 +21,23 @@ export default function OkToSprayPage() {
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<HourRow[]>([]);
   const [source, setSource] = useState<{ provider: string; station?: any } | null>(null);
+  const [property, setProperty] = useState<any>(null);
+
+  useEffect(() => {
+    // Load property data if available
+    const propertyId = localStorage.getItem('bb_property_id');
+    if (propertyId) {
+      fetch(apiUrl(`/api/properties/${propertyId}`))
+        .then(res => res.json())
+        .then(data => setProperty(data))
+        .catch(() => {});
+    }
+  }, []);
 
   async function fetchTable() {
-    const lat = profile?.lat ?? profile?.latitude ?? 36.0526;   // Broken Arrow fallback
-    const lon = profile?.lon ?? profile?.longitude ?? -95.7909;
+    // Priority: profile coords > property coords > fallback
+    const lat = profile?.lat ?? profile?.latitude ?? property?.lat ?? 36.0526;
+    const lon = profile?.lon ?? profile?.longitude ?? property?.lon ?? -95.7909;
     const res = await fetch(apiUrl(`/api/weather/ok-to-spray?lat=${lat}&lon=${lon}&hours=12`));
     const data = await res.json();
     setRows(data.table);
