@@ -26,12 +26,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkUser();
 
     // Add timeout fallback to prevent infinite loading
+    // Increased to 10s since Supabase can be slow on first load
     const timeout = setTimeout(() => {
       if (loading) {
-        console.warn('Auth check timed out, setting loading to false');
+        console.warn('[Auth] Initial auth check timed out after 10s, proceeding anyway');
         setLoading(false);
       }
-    }, 3000);
+    }, 10000);
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
       const currentUser = session?.user || null;
@@ -55,13 +56,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function checkUser() {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user || null);
-      if (session?.user) {
+      console.log('[Auth] Checking for existing session...');
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('[Auth] Error getting session:', error);
+      } else if (session?.user) {
+        console.log('[Auth] Found existing session for user:', session.user.id);
+        setUser(session.user);
         await fetchProfile(session.user.id);
+      } else {
+        console.log('[Auth] No existing session found');
+        setUser(null);
       }
     } catch (error) {
-      console.error('Error checking user:', error);
+      console.error('[Auth] Error checking user:', error);
     } finally {
       setLoading(false);
     }
