@@ -145,8 +145,10 @@ def _fallback_nickname(req: NicknameRequest) -> str:
 
 @app.post("/api/nickname")
 async def api_generate_nickname(payload: NicknameRequest) -> Dict[str, str]:
+    log.info(f"[Nickname] Request received for {payload.first_name} from {payload.state}")
     key = os.getenv("OPENROUTER_API_KEY")
     if not key:
+        log.warning("[Nickname] No OPENROUTER_API_KEY in environment!")
         # No key in env; return deterministic fallback
         return {"nickname": _fallback_nickname(payload)}
 
@@ -206,8 +208,10 @@ async def api_generate_nickname(payload: NicknameRequest) -> Dict[str, str]:
     }
 
     try:
+        log.info(f"[Nickname] Calling OpenRouter with model: openai/gpt-3.5-turbo")
         async with httpx.AsyncClient(timeout=20) as client:
             resp = await client.post("https://openrouter.ai/api/v1/chat/completions", json=body, headers=headers)
+            log.info(f"[Nickname] OpenRouter status: {resp.status_code}")
             resp.raise_for_status()
             data = resp.json()
             content = (
@@ -216,14 +220,18 @@ async def api_generate_nickname(payload: NicknameRequest) -> Dict[str, str]:
                 .get("content", "")
                 .strip()
             )
-            log.info(f"OpenRouter returned: {content}")
+            log.info(f"[Nickname] OpenRouter raw response: {content}")
             nickname = "".join(ch for ch in content if ch.isalnum())[:30]
+            log.info(f"[Nickname] Filtered nickname: {nickname}")
             if not nickname:
-                log.warning(f"Empty nickname after filtering, using fallback")
+                log.warning(f"[Nickname] Empty nickname after filtering, using fallback")
                 nickname = _fallback_nickname(payload)
             return {"nickname": nickname}
+    except httpx.HTTPStatusError as e:
+        log.error(f"[Nickname] OpenRouter HTTP error {e.response.status_code}: {e.response.text}")
+        return {"nickname": _fallback_nickname(payload)}
     except Exception as e:
-        log.warning(json.dumps({"event": "nickname_error", "error": str(e)}))
+        log.error(f"[Nickname] Unexpected error: {type(e).__name__}: {str(e)}")
         return {"nickname": _fallback_nickname(payload)}
 
 

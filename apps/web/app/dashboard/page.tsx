@@ -60,12 +60,16 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const load = async () => {
+      console.log('[Dashboard] Loading with profile:', JSON.stringify(profile, null, 2));
+      console.log('[Dashboard] User:', user?.id);
+      
       try {
         setLoading(true);
         // Use actual user location from profile, fallback to Broken Arrow if not set
         const lat = profile?.lat || profile?.latitude || 36.0526; // Broken Arrow, OK
         const lon = profile?.lon || profile?.longitude || -95.7909;
-        console.log('[Dashboard] Using coordinates:', { lat, lon, profile });
+        console.log('[Dashboard] Using coordinates:', { lat, lon });
+        console.log('[Dashboard] Profile has lat?', profile?.lat, 'lon?', profile?.lon);
         const s = await fetch(apiUrl(`/api/weather/summary?lat=${lat}&lon=${lon}&hours=24`)).then(r => r.json());
         setSummary(s);
         const temps = (s.hourlies || []).map((r: any) => r.t_air_f).filter((v: any) => typeof v === 'number');

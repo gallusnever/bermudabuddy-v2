@@ -110,8 +110,15 @@ export function AccountNicknameStep({
       // Update profile with all data
       if (authData.user) {
         console.log('[Profile] Saving profile for user:', authData.user.id);
-        console.log('[Profile] Location data:', locationData);
-        console.log('[Profile] Equipment data:', equipmentData);
+        console.log('[Profile] Location data:', JSON.stringify(locationData, null, 2));
+        console.log('[Profile] Equipment data:', JSON.stringify(equipmentData, null, 2));
+        console.log('[Profile] Actual values being saved:', {
+          lat: locationData.lat || locationData.latitude,
+          lon: locationData.lon || locationData.lng || locationData.longitude,
+          city: locationData.city,
+          state: locationData.state,
+          nickname: nickname
+        });
         
         const { error: profileError } = await supabase
           .from('profiles')
@@ -138,14 +145,25 @@ export function AccountNicknameStep({
           });
 
         if (profileError) {
-          console.error('[Profile] Save failed:', profileError);
+          console.error('[Profile] ❌ SAVE FAILED:', profileError);
+          console.error('[Profile] Failed data:', { locationData, equipmentData, nickname });
           throw new Error(`Failed to save profile: ${profileError.message}`);
         }
         
-        console.log('[Profile] Successfully saved profile with coordinates:', {
-          lat: locationData.lat || locationData.latitude,
-          lon: locationData.lon || locationData.lng || locationData.longitude
-        });
+        console.log('[Profile] ✅ SUCCESSFULLY SAVED! Verifying...');
+        
+        // IMMEDIATELY verify the save worked
+        const { data: verifyData, error: verifyError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authData.user.id)
+          .single();
+          
+        if (verifyError) {
+          console.error('[Profile] ❌ VERIFICATION FAILED:', verifyError);
+        } else {
+          console.log('[Profile] ✅ VERIFIED DATA IN DB:', JSON.stringify(verifyData, null, 2));
+        }
 
         // Refresh the profile in auth context to get the saved data
         // Only if refreshProfile is available (user might not be set in context yet)
