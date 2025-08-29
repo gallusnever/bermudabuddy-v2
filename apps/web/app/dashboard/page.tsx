@@ -73,12 +73,13 @@ export default function DashboardPage() {
       
       try {
         setLoading(true);
-        // Use actual user location from profile, fallback to Broken Arrow if not set
-        const lat = profile?.lat || profile?.latitude || 36.0526; // Broken Arrow, OK
-        const lon = profile?.lon || profile?.longitude || -95.7909;
+        // Coordinate resolution order: profile.lat/lon -> profile.latitude/longitude -> property -> Broken Arrow fallback
+        const lat = profile?.lat ?? profile?.latitude ?? property?.lat ?? 36.0526; // Broken Arrow, OK
+        const lon = profile?.lon ?? profile?.longitude ?? property?.lon ?? -95.7909;
         console.log('[Dashboard] Using coordinates:', { lat, lon });
         console.log('[Dashboard] Profile has lat?', profile?.lat, 'lon?', profile?.lon);
         const s = await fetch(apiUrl(`/api/weather/summary?lat=${lat}&lon=${lon}&hours=24`)).then(r => r.json());
+        if (process.env.NODE_ENV !== 'production') console.debug('[Weather] summary', s);
         setSummary(s);
         const temps = (s.hourlies || []).map((r: any) => r.t_air_f).filter((v: any) => typeof v === 'number');
         const g = gddFromHourly(temps, gddModel);
@@ -204,7 +205,13 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-semibold">Dashboard</h1>
           <p className="text-sm text-muted">
             {cityState}
-            {summary?.current?.t_air_f != null ? ` • ${Math.round(summary.current.t_air_f)}°F` : ''}
+            {(() => {
+              const tempF = summary?.current?.temp_f ?? 
+                (typeof summary?.current?.temp_c === 'number' 
+                  ? (summary.current.temp_c * 9) / 5 + 32
+                  : summary?.current?.t_air_f);
+              return tempF != null ? ` • ${Math.round(tempF)}°F` : '';
+            })()}
             {summary?.current?.condition ? ` • ${summary.current.condition}` : ''}
             {summary?.source?.provider ? ` • Provider: ${summary.source.provider}` : ''}
           </p>

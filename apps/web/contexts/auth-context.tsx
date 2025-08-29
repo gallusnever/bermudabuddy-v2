@@ -24,36 +24,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Check for existing session on mount
   useEffect(() => {
     let mounted = true;
-    
-    const initAuth = async () => {
-      await checkUser();
-      // Only set loading false if component still mounted
-      if (mounted && loading) {
-        setLoading(false);
-      }
-    };
-    
-    initAuth();
 
-    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // Initial session hydrate
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (!mounted) return;
-      
-      const currentUser = session?.user || null;
-      setUser(currentUser);
-      if (currentUser) {
-        await fetchProfile(currentUser.id);
+      console.debug('[Auth] Initial session check:', session ? 'found' : 'none', 'at', new Date().toISOString());
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchProfile(session.user.id);
+      }
+      setLoading(false);
+    });
+
+    // Subscribe to auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+      console.debug('[Auth] event:', event, 'at', new Date().toISOString());
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        fetchProfile(session.user.id);
       } else {
         setProfile(null);
       }
-      // Set loading false after auth state change
-      if (loading) {
-        setLoading(false);
-      }
     });
+
+    // Ensure refresh timer runs even on background tabs
+    supabase.auth.startAutoRefresh();
 
     return () => {
       mounted = false;
-      authListener?.subscription.unsubscribe();
+      subscription.unsubscribe();
+      supabase.auth.stopAutoRefresh();
     };
   }, []);
 
