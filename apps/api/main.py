@@ -386,6 +386,40 @@ async def api_analyze(req: AnalysisRequest) -> Dict[str, Any]:
     d = req.data
     issues = (d.get("issues") or [])
     active = [i for i in issues if (i.get("status") != "resolved")]
+    
+    # Try OpenRouter first if key available
+    key = os.getenv("OPENROUTER_API_KEY")
+    if key:
+        try:
+            body = {
+                "model": "openai/gpt-3.5-turbo",
+                "messages": [
+                    {"role": "system", "content": "Analyze lawn health data and return JSON with: overallHealth (excellent/good/fair/poor/critical), keyMetrics (array of 3-4 key observations), activeIssues (array of issue types), recommendations (array of 2-4 specific actions). Be concise and practical."},
+                    {"role": "user", "content": f"Analyze this lawn data:\n{json.dumps(d)}"},
+                ],
+                "temperature": 0.3,
+                "max_tokens": 500,
+            }
+            headers = {
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": os.getenv("OPENROUTER_HTTP_REFERER", "https://bermudabuddy.com"),
+                "X-Title": "Bermuda Buddy Analysis",
+            }
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.post("https://openrouter.ai/api/v1/chat/completions", json=body, headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                # Parse JSON from response
+                import re, json as pyjson
+                m = re.search(r"\{[\s\S]*\}", content)
+                if m:
+                    return pyjson.loads(m.group(0))
+        except Exception as e:
+            log.warning(json.dumps({"event": "analyze_error", "error": str(e)}))
+    
+    # Fallback logic
     overall = "poor" if len(issues) > 3 else ("fair" if len(issues) > 1 else ("good" if len(issues) > 0 else "excellent"))
     key_metrics = [
         f"Grass Type: {(d.get('equipment') or {}).get('grassType') or 'Bermuda'}",
@@ -415,6 +449,46 @@ async def api_address(req: AddressRequest) -> Dict[str, str]:
     active = [i for i in issues if (i.get("status") != "resolved")]
     critical = len([i for i in active if i.get("severity") == "critical"])
     high = len([i for i in active if i.get("severity") == "high"])
+    
+    # Try OpenRouter first if key available
+    key = os.getenv("OPENROUTER_API_KEY")
+    if key:
+        try:
+            prompt = f"""Write a dramatic presidential State of the Union address about a lawn.
+            
+Lawn Health: {a.get('overallHealth', 'unknown')}
+Active Issues: {', '.join([i.get('type', 'unknown') for i in active]) if active else 'none'}
+Critical Issues: {critical}
+High Priority Issues: {high}
+
+Write a 3-4 paragraph presidential address. Be dramatic and use political rhetoric. Reference specific issues. End with 'The state of the Bermuda is strong.'"""
+            
+            body = {
+                "model": "openai/gpt-3.5-turbo",
+                "messages": [
+                    {"role": "system", "content": "You are delivering a presidential State of the Union address about a lawn. Be dramatic, use political rhetoric, and reference specific lawn care issues."},
+                    {"role": "user", "content": prompt},
+                ],
+                "temperature": 0.7,
+                "max_tokens": 600,
+            }
+            headers = {
+                "Authorization": f"Bearer {key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": os.getenv("OPENROUTER_HTTP_REFERER", "https://bermudabuddy.com"),
+                "X-Title": "Bermuda State Address",
+            }
+            async with httpx.AsyncClient(timeout=15) as client:
+                resp = await client.post("https://openrouter.ai/api/v1/chat/completions", json=body, headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                if content:
+                    return {"text": content}
+        except Exception as e:
+            log.warning(json.dumps({"event": "address_error", "error": str(e)}))
+    
+    # Fallback logic
     st = (req.weather or {}).get("current", {}).get("soil_temp_f")
     intro = "My fellow lawn enthusiasts,\n\n"
     if critical > 0:
@@ -611,6 +685,8 @@ class PropertyCreate(BaseModel):
     lat: Optional[float] = None
     lon: Optional[float] = None
     timezone: Optional[str] = None
+    area_sqft: Optional[float] = None
+    user_id: Optional[str] = None
 
 
 def _ensure_sqlite_onboarding_tables(session: Session) -> None:
@@ -636,6 +712,7 @@ def _ensure_sqlite_onboarding_tables(session: Session) -> None:
 def create_property(payload: PropertyCreate, session: Session = Depends(get_db_session)):
     _ensure_sqlite_onboarding_tables(session)
     p = DBProperty(
+        user_id=payload.user_id,
         address=payload.address,
         state=payload.state,
         program_goal=payload.program_goal,
@@ -645,11 +722,12 @@ def create_property(payload: PropertyCreate, session: Session = Depends(get_db_s
         lat=payload.lat,
         lon=payload.lon,
         timezone=payload.timezone,
+        area_sqft=payload.area_sqft,
     )
     session.add(p)
     session.commit()
     session.refresh(p)
-    return {"id": p.id, "address": p.address, "state": p.state}
+    return {"id": p.id, "address": p.address, "state": p.state, "user_id": p.user_id}
 
 
 class PolygonCreate(BaseModel):

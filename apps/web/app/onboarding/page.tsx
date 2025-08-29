@@ -69,12 +69,11 @@ export default function OnboardingPage() {
     setCurrentStep(3);
   };
 
-  // Step 3: Property Map & Grass Type
+  // Step 3: Property Map (grass type comes from equipment step)
   const handlePropertyNext = (data: any) => {
     setOnboardingData(prev => ({ 
       ...prev, 
       zones: data.zones || [],
-      grass: data.grass || {},
       // Merge coordinates into location data
       location: {
         ...prev.location,
@@ -88,9 +87,18 @@ export default function OnboardingPage() {
     setCurrentStep(4);
   };
 
-  // Step 4: Equipment
+  // Step 4: Equipment (includes grass type)
   const handleEquipmentNext = (data: any) => {
-    setOnboardingData(prev => ({ ...prev, equipment: data }));
+    setOnboardingData(prev => ({ 
+      ...prev, 
+      equipment: data,
+      // Also store grass data separately for consistency
+      grass: {
+        type: data.grassType,
+        hoc: data.hoc,
+        age: data.lawnAge
+      }
+    }));
     setCurrentStep(5);
   };
 
@@ -112,11 +120,11 @@ export default function OnboardingPage() {
         yard: {
           location: onboardingData.location,
           grass: {
-            type: onboardingData.equipment.grassType,
-            hoc: parseFloat(onboardingData.equipment.hoc),
-            age: onboardingData.equipment.lawnAge
+            type: onboardingData.grass?.type || onboardingData.equipment?.grassType || 'bermuda',
+            hoc: parseFloat(onboardingData.grass?.hoc || onboardingData.equipment?.hoc || '1.0'),
+            age: onboardingData.grass?.age || onboardingData.equipment?.lawnAge
           },
-          zones: []
+          zones: onboardingData.zones || []
         },
         equipment: {
           mower: {
@@ -144,7 +152,7 @@ export default function OnboardingPage() {
           weeklyTime: parseInt(onboardingData.equipment.weeklyTime || '2'),
           diyLevel: onboardingData.equipment.experience || 'beginner'
         },
-        issues: []
+        issues: onboardingData.status?.issues || []
       });
     }
     

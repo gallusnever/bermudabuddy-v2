@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { apiUrl } from '../../lib/api';
 import { Button, Card, CardContent, CardHeader, CardTitle, Drawer, Chip, Badge, Icons, Tooltip } from '@bermuda/ui';
 import BudSays, { getRandomTip } from '../../components/bud-says';
+import { useAuth } from '../../contexts/auth-context';
 
 type HourRow = {
   ts: string;
@@ -16,12 +17,15 @@ type HourRow = {
 };
 
 export default function OkToSprayPage() {
+  const { profile } = useAuth();
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<HourRow[]>([]);
   const [source, setSource] = useState<{ provider: string; station?: any } | null>(null);
 
   async function fetchTable() {
-    const res = await fetch(apiUrl('/api/weather/ok-to-spray?lat=32.78&lon=-96.80&hours=12'));
+    const lat = profile?.lat ?? profile?.latitude ?? 36.0526;   // Broken Arrow fallback
+    const lon = profile?.lon ?? profile?.longitude ?? -95.7909;
+    const res = await fetch(apiUrl(`/api/weather/ok-to-spray?lat=${lat}&lon=${lon}&hours=12`));
     const data = await res.json();
     setRows(data.table);
     setSource(data.source);
@@ -102,7 +106,7 @@ export default function OkToSprayPage() {
                     <div className="text-2xl">{timeIcon}</div>
                     <div>
                       <div className="text-lg font-bold">
-                        {time.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                        {new Date(r.ts).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
                       </div>
                       <Badge className={`
                         ${r.status === 'OK' ? 'bg-emerald-700/30 border-emerald-600/50' : ''}

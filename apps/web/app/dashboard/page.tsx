@@ -200,7 +200,12 @@ export default function DashboardPage() {
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold">Dashboard</h1>
-          <p className="text-sm text-muted">{cityState} • Provider: {summary?.source.provider}</p>
+          <p className="text-sm text-muted">
+            {cityState}
+            {summary?.current?.t_air_f != null ? ` • ${Math.round(summary.current.t_air_f)}°F` : ''}
+            {summary?.current?.condition ? ` • ${summary.current.condition}` : ''}
+            {summary?.source?.provider ? ` • Provider: ${summary.source.provider}` : ''}
+          </p>
         </div>
         <Button 
           onClick={() => setShowUpdateConditions(true)}

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Chip, Badge, Button, Icons, Tooltip } from '@bermuda/ui';
 import { apiUrl } from '../../lib/api';
 import BudSays from '../../components/bud-says';
+import { LogApplicationForm } from '../../components/log-application-form';
 
 type ApplicationRow = {
   id: number;
@@ -16,6 +17,7 @@ type ApplicationRow = {
 export default function ApplicationsPage() {
   const [rows, setRows] = useState<ApplicationRow[]>([]);
   const [pid, setPid] = useState<string | null>(null);
+  const [showApplicationForm, setShowApplicationForm] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -79,6 +81,7 @@ export default function ApplicationsPage() {
                     <div className="text-sm font-medium text-blue-400 mb-1">Your application log is empty</div>
                     <div className="text-sm text-muted">Start by mixing something in the Mix Builder. Every application gets logged here automatically.</div>
                     <div className="text-xs text-muted italic mt-2">"An undocumented application is just expensive water."</div>
+                    <Button className="mt-3" onClick={() => setShowApplicationForm(true)}>Log New Application</Button>
                   </div>
                 </div>
               </div>
@@ -129,6 +132,28 @@ export default function ApplicationsPage() {
             )}
           </CardContent>
         </Card>
+      )}
+      
+      {showApplicationForm && pid && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="max-w-2xl w-full">
+            <LogApplicationForm
+              propertyId={pid}
+              onClose={() => setShowApplicationForm(false)}
+              onSuccess={(newApp) => {
+                setShowApplicationForm(false);
+                // Add the new application to the list without full reload
+                setRows(prev => [...prev, newApp]);
+                // Show success notification
+                const notification = document.createElement('div');
+                notification.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded shadow-lg z-50';
+                notification.textContent = 'Application logged successfully!';
+                document.body.appendChild(notification);
+                setTimeout(() => notification.remove(), 3000);
+              }}
+            />
+          </div>
+        </div>
       )}
     </main>
   );

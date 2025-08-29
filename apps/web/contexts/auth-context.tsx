@@ -23,18 +23,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Check for existing session on mount
   useEffect(() => {
-    checkUser();
-
-    // Add timeout fallback to prevent infinite loading
-    // Increased to 10s since Supabase can be slow on first load
-    const timeout = setTimeout(() => {
-      if (loading) {
-        console.warn('[Auth] Initial auth check timed out after 10s, proceeding anyway');
+    let mounted = true;
+    
+    const initAuth = async () => {
+      await checkUser();
+      // Only set loading false if component still mounted
+      if (mounted && loading) {
         setLoading(false);
       }
-    }, 10000);
+    };
+    
+    initAuth();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+      
       const currentUser = session?.user || null;
       setUser(currentUser);
       if (currentUser) {
@@ -42,14 +45,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setProfile(null);
       }
-      // Set loading false after auth state change if checkUser hasn't run yet
+      // Set loading false after auth state change
       if (loading) {
         setLoading(false);
       }
     });
 
     return () => {
-      clearTimeout(timeout);
+      mounted = false;
       authListener?.subscription.unsubscribe();
     };
   }, []);
@@ -83,10 +86,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .maybeSingle(); // Use maybeSingle to avoid error if no profile exists
+        .single(); // Use single() to get explicit error if no profile
       
       if (error) {
-        console.error('[Auth] Profile fetch error:', error);
+        if (error.code === 'PGRST116') {
+          // No profile found - retry once after delay
+          console.log('[Auth] No profile found, retrying in 1s...');
+          await new Promise(r => setTimeout(r, 1000));
+          
+          const { data: retryData, error: retryError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+          
+          if (retryError) {
+            console.error('[Auth] Profile still not found after retry:', retryError);
+            setProfile(null);
+            return;
+          }
+          
+          if (retryData) {
+            console.log('[Auth] Profile loaded on retry:', retryData);
+            setProfile(retryData);
+          }
+        } else {
+          console.error('[Auth] Profile fetch error:', error);
+          setProfile(null);
+          return;
+        }
       } else if (data) {
         console.log('[Auth] Profile loaded:', data);
         setProfile(data);

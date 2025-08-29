@@ -12,7 +12,7 @@ const links = [
   { href: '/mix', label: 'Mix Builder', icon: 'Beaker' },
   { href: '/ok-to-spray', label: 'OK to Spray', icon: 'Wind' },
   { href: '/applications', label: 'Applications', icon: 'Layers' },
-  { href: '/onboarding', label: 'Settings', icon: 'MapPin' },
+  { href: '/settings', label: 'Settings', icon: 'Settings' },
 ];
 
 function isActive(pathname: string, href: string) {

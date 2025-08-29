@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@bermuda/ui';
 import Image from 'next/image';
 
@@ -19,7 +19,7 @@ export function YardSections() {
   const [uploadingSection, setUploadingSection] = useState<string | null>(null);
 
   // Load sections from localStorage on mount
-  useState(() => {
+  useEffect(() => {
     try {
       const saved = localStorage.getItem('bb_yard_sections');
       if (saved) {
@@ -41,7 +41,7 @@ export function YardSections() {
         }
       }
     } catch {}
-  });
+  }, []);
 
   const handlePhotoUpload = (sectionId: string, event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

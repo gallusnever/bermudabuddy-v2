@@ -247,14 +247,17 @@ export class YardStateManager {
             city: onboardData.location?.city || '',
             state: onboardData.location?.state || '',
             zip: onboardData.location?.zip,
-            area: onboardData.location?.area || 0
+            area: onboardData.location?.area || 0,
+            coords: onboardData.location?.lat && onboardData.location?.lon
+              ? { lat: onboardData.location.lat, lon: onboardData.location.lon }
+              : undefined,
           },
           grass: {
-            type: onboardData.equipment?.grassType || 'common',
-            hoc: parseFloat(onboardData.equipment?.hoc || '1.0'),
-            age: onboardData.equipment?.lawnAge
+            type: onboardData.grass?.type || onboardData.equipment?.grassType || 'common',
+            hoc: parseFloat(onboardData.grass?.hoc ?? onboardData.equipment?.hoc ?? '1.0'),
+            age: onboardData.grass?.age ?? onboardData.equipment?.lawnAge
           },
-          zones: sectionsData.map((s: any) => ({
+          zones: (sectionsData ?? onboardData.zones ?? []).map((s: any) => ({
             id: s.id,
             name: s.name,
             area: s.area || 0,
@@ -287,7 +290,7 @@ export class YardStateManager {
           weeklyTime: parseInt(onboardData.equipment?.weeklyTime || '2'),
           diyLevel: onboardData.equipment?.experience || 'beginner'
         },
-        issues: issuesData,
+        issues: Array.isArray(issuesData) ? issuesData : (onboardData.status?.issues ?? []),
         aiAnalysis: programData ? {
           timestamp: new Date().toISOString(),
           health: {
@@ -313,6 +316,20 @@ export class YardStateManager {
   
   // Deep merge helper
   private deepMerge(target: any, source: any): any {
+    // Handle arrays specially
+    if (Array.isArray(target) && Array.isArray(source)) {
+      // If arrays contain objects with ids, merge by id
+      if (target.every((x: any) => x?.id) && source.every((x: any) => x?.id)) {
+        const byId = new Map(target.map((x: any) => [x.id, x]));
+        for (const s of source) {
+          byId.set(s.id, this.deepMerge(byId.get(s.id) ?? {}, s));
+        }
+        return Array.from(byId.values());
+      }
+      // Otherwise replace the array
+      return source;
+    }
+    
     const output = { ...target };
     if (isObject(target) && isObject(source)) {
       Object.keys(source).forEach(key => {

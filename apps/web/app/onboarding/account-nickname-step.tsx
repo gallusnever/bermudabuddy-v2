@@ -5,6 +5,7 @@ import BudSays from '../../components/bud-says';
 import { supabase } from '../../lib/supabase';
 import { generateUniqueNickname, NicknameContext } from '../../lib/nickname-generator';
 import { useAuth } from '../../contexts/auth-context';
+import { apiUrl } from '../../lib/api';
 
 interface AccountNicknameStepProps {
   locationData: any;
@@ -107,72 +108,131 @@ export function AccountNicknameStep({
 
       if (authError) throw authError;
 
-      // Update profile with all data
+      // Update profile with all data - with retry logic
       if (authData.user) {
         console.log('[Profile] Saving profile for user:', authData.user.id);
-        console.log('[Profile] Location data:', JSON.stringify(locationData, null, 2));
-        console.log('[Profile] Equipment data:', JSON.stringify(equipmentData, null, 2));
-        console.log('[Profile] Actual values being saved:', {
-          lat: locationData.lat || locationData.latitude,
-          lon: locationData.lon || locationData.lng || locationData.longitude,
-          city: locationData.city,
-          state: locationData.state,
-          nickname: nickname
-        });
         
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .upsert({
-            id: authData.user.id,
-            email,
-            first_name: firstName,
-            last_name: lastName,
-            nickname: nickname,
-            full_name: `${firstName} ${lastName}`,
-            city: locationData.city,
-            state: locationData.state,
-            zip: locationData.zip,
-            address: locationData.address,
-            lat: locationData.lat || locationData.latitude,
-            lon: locationData.lon || locationData.lng || locationData.longitude,
-            area_sqft: locationData.area || locationData.area_sqft,
-            grass_type: equipmentData.grassType || equipmentData.grass_type,
-            hoc: equipmentData.hoc ? parseFloat(equipmentData.hoc) : null,
-            mower: equipmentData.mower,
-            sprayer: equipmentData.sprayer,
-            irrigation: equipmentData.irrigation,
-            updated_at: new Date().toISOString()
-          });
+        // Wait a moment for session to be established
+        await new Promise(r => setTimeout(r, 1000));
+        
+        // Retry logic for profile save
+        let profileSaved = false;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          const { error: upsertErr } = await supabase
+            .from('profiles')
+            .upsert({
+              id: authData.user.id,
+              email,
+              first_name: firstName,
+              last_name: lastName,
+              nickname: nickname,
+              full_name: `${firstName} ${lastName}`,
+              city: locationData.city,
+              state: locationData.state,
+              zip: locationData.zip,
+              address: locationData.address,
+              lat: locationData.lat ?? locationData.latitude,
+              lon: locationData.lon ?? locationData.lng ?? locationData.longitude,
+              area_sqft: locationData.area ?? locationData.area_sqft,
+              grass_type: equipmentData.grassType ?? equipmentData.grass_type,
+              hoc: equipmentData.hoc ? parseFloat(equipmentData.hoc) : null,
+              mower: equipmentData.mower,
+              sprayer: equipmentData.sprayer,
+              irrigation: equipmentData.irrigation,
+              updated_at: new Date().toISOString()
+            });
 
-        if (profileError) {
-          console.error('[Profile] ❌ SAVE FAILED:', profileError);
-          console.error('[Profile] Failed data:', { locationData, equipmentData, nickname });
-          throw new Error(`Failed to save profile: ${profileError.message}`);
-        }
-        
-        console.log('[Profile] ✅ SUCCESSFULLY SAVED! Verifying...');
-        
-        // IMMEDIATELY verify the save worked
-        const { data: verifyData, error: verifyError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', authData.user.id)
-          .single();
+          if (!upsertErr) {
+            // Verify the save worked
+            const { data: verify, error: verifyErr } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', authData.user.id)
+              .single();
+            
+            if (!verifyErr && verify?.nickname && (verify?.lat ?? verify?.lon) != null) {
+              console.log('[Profile] ✅ Profile saved and verified on attempt', attempt);
+              profileSaved = true;
+              break;
+            }
+          }
+
+          if (attempt === 3) {
+            setErrors({ general: 'Failed to save profile after 3 attempts. Please try again.' });
+            setLoading(false);
+            return;
+          }
           
-        if (verifyError) {
-          console.error('[Profile] ❌ VERIFICATION FAILED:', verifyError);
-        } else {
-          console.log('[Profile] ✅ VERIFIED DATA IN DB:', JSON.stringify(verifyData, null, 2));
+          console.log(`[Profile] Attempt ${attempt} failed, retrying...`);
+          await new Promise(r => setTimeout(r, 1000 * attempt));
         }
 
-        // Refresh the profile in auth context to get the saved data
-        // Only if refreshProfile is available (user might not be set in context yet)
+        if (!profileSaved) {
+          setErrors({ general: 'Failed to save profile. Please try again.' });
+          setLoading(false);
+          return;
+        }
+
+        // Persist zones to backend
+        try {
+          // Get the session token for API calls
+          const { data: { session } } = await supabase.auth.getSession();
+          const token = session?.access_token;
+          
+          // Create or fetch property id for this user
+          const propRes = await fetch(apiUrl('/api/properties'), {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              ...(token && { 'Authorization': `Bearer ${token}` })
+            },
+            body: JSON.stringify({
+              user_id: authData.user.id,  // Link property to user!
+              address: locationData.address,
+              lat: locationData.lat ?? locationData.latitude,
+              lon: locationData.lon ?? locationData.lng ?? locationData.longitude,
+              state: locationData.state,
+              area_sqft: locationData.area ?? locationData.area_sqft,
+            }),
+          });
+          const prop = await propRes.json();
+          
+          if (prop?.id) {
+            localStorage.setItem('bb_property_id', String(prop.id));
+            
+            // Insert polygons if zones exist
+            if (Array.isArray(statusData?.zones) && statusData.zones.length) {
+              for (const z of statusData.zones) {
+                const zoneRes = await fetch(apiUrl(`/api/properties/${prop.id}/polygons`), {
+                  method: 'POST',
+                  headers: { 
+                    'Content-Type': 'application/json',
+                    ...(token && { 'Authorization': `Bearer ${token}` })
+                  },
+                  body: JSON.stringify({
+                    name: z.name || 'Zone',
+                    geojson: z.geometry ?? z.geojson ?? null,
+                    area_sqft: z.area ?? 0,
+                  }),
+                });
+                if (!zoneRes.ok) {
+                  console.error('[Zones] Failed to save zone:', z.name, zoneRes.status);
+                }
+              }
+              console.log('[Zones] Persisted', statusData.zones.length, 'zones to backend');
+            }
+          }
+        } catch (e) {
+          console.error('[Onboarding] Zone persistence failed:', e);
+          // Continue anyway - zones saved in localStorage
+        }
+
+        // Refresh the profile in auth context
         if (refreshProfile) {
           try {
             await refreshProfile();
           } catch (err) {
             console.warn('[Profile] Could not refresh profile:', err);
-            // Continue anyway - profile will be fetched on next page load
           }
         }
         
