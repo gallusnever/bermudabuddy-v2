@@ -3,8 +3,10 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, Badge, Button, Icons } from '@bermuda/ui';
 import { generateBudProgram, BudProgram } from '../lib/bud-program-generator';
 import BudSays from './bud-says';
+import { useAuth } from '../contexts/auth-context';
 
 export function BudProgramDisplay() {
+  const { profile } = useAuth();
   const [program, setProgram] = useState<BudProgram | null>(null);
   const [loading, setLoading] = useState(false);
   const [userData, setUserData] = useState<any>(null);
@@ -12,14 +14,48 @@ export function BudProgramDisplay() {
 
   useEffect(() => {
     loadUserData();
-  }, []);
+  }, [profile]);
 
   const loadUserData = () => {
-    const saved = localStorage.getItem('bb_onboarding');
-    if (saved) {
-      const data = JSON.parse(saved);
+    // Check profile first (from database), then localStorage
+    if (profile?.nickname) {
+      // Profile exists, user has completed onboarding
+      const data = {
+        location: {
+          address: profile.address,
+          city: profile.city,
+          state: profile.state,
+          zip: profile.zip,
+          lat: profile.lat,
+          lon: profile.lon,
+          area: profile.area_sqft
+        },
+        equipment: {
+          grassType: profile.grass_type,
+          mower: profile.mower,
+          hoc: profile.hoc,
+          irrigation: profile.irrigation,
+          sprayer: profile.sprayer,
+          monthlyBudget: 100, // Default since not stored in profile
+          weeklyTime: 5 // Default since not stored in profile
+        },
+        account: {
+          nickname: profile.nickname,
+          firstName: profile.first_name,
+          lastName: profile.last_name,
+          email: profile.email
+        }
+      };
       setUserData(data);
       generateProgram(data);
+    } else {
+      // Fallback to localStorage for incomplete signups
+      const saved = localStorage.getItem('bb_onboarding');
+      if (saved) {
+        const data = JSON.parse(saved);
+        setUserData(data);
+        generateProgram(data);
+      }
     }
   };
 
@@ -70,7 +106,10 @@ export function BudProgramDisplay() {
     }
   };
 
-  if (!program && !loading) {
+  // Check if user has completed onboarding (has profile with nickname OR localStorage data)
+  const hasCompletedOnboarding = profile?.nickname || userData;
+  
+  if (!program && !loading && !hasCompletedOnboarding) {
     return (
       <Card>
         <CardHeader>
