@@ -40,7 +40,6 @@ export interface UserProfile {
   product_source?: string;
   application_method?: string;
   lawn_issues?: string[];
-  age_verified?: boolean;
   disclaimer_accepted?: boolean;
   created_at?: string;
   updated_at?: string;

@@ -134,7 +134,6 @@ export function AccountNicknameStep({
             mower: equipmentData.mower,
             sprayer: equipmentData.sprayer,
             irrigation: equipmentData.irrigation,
-            age_verified: true,
             updated_at: new Date().toISOString()
           });
 

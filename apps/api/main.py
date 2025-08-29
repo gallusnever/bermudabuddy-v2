@@ -189,7 +189,7 @@ async def api_generate_nickname(payload: NicknameRequest) -> Dict[str, str]:
     )
 
     body = {
-        "model": "openai/gpt-oss-120b",
+        "model": "openai/gpt-3.5-turbo",  # Changed to a standard model
         "messages": [
             {"role": "system", "content": sys_prompt},
             {"role": "user", "content": user_prompt},
