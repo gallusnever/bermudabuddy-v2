@@ -465,7 +465,7 @@ export default function YardStatePage() {
         </CardHeader>
         <CardContent>
           <div className="grid gap-3 md:grid-cols-3">
-            <Button variant="ghost" onClick={() => window.location.href = '/pgr'}>
+            <Button variant="ghost" onClick={() => window.location.href = '/dashboard'}>
               View PGR Schedule
             </Button>
             <Button variant="ghost" onClick={() => window.location.href = '/mix'}>

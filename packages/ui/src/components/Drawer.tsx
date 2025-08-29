@@ -10,11 +10,31 @@ export interface DrawerProps {
 }
 
 export function Drawer({ open, onClose, children, title }: DrawerProps) {
+  // Add ESC key handler
+  React.useEffect(() => {
+    if (!open) return;
+    
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    
+    document.addEventListener('keydown', handleEsc);
+    // Lock body scroll when drawer is open
+    document.body.style.overflow = 'hidden';
+    
+    return () => {
+      document.removeEventListener('keydown', handleEsc);
+      document.body.style.overflow = '';
+    };
+  }, [open, onClose]);
+  
   return (
     <div
       aria-hidden={!open}
       className={cn(
-        'fixed inset-0 z-50 transition-opacity',
+        'fixed inset-0 z-40 transition-opacity', // z-40 instead of z-50 to stay below header
         open ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
       )}
     >

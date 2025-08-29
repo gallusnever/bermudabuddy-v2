@@ -259,29 +259,31 @@ export function DisclaimerStep({ onNext, onBack }: { onNext: () => void; onBack:
           </div>
 
           <div className="space-y-3">
-            <label className="flex items-start gap-2 cursor-pointer">
+            <div className="flex items-start gap-2">
               <input
+                id="disclaimer-accept"
                 type="checkbox"
                 checked={accepted}
                 onChange={(e) => setAccepted(e.target.checked)}
-                className="rounded mt-0.5"
+                className="rounded mt-0.5 cursor-pointer"
               />
-              <span className="text-sm">
+              <label htmlFor="disclaimer-accept" className="text-sm cursor-pointer">
                 I accept this disclaimer and understand that I am solely responsible for my actions and any consequences thereof.
-              </span>
-            </label>
+              </label>
+            </div>
 
-            <label className="flex items-start gap-2 cursor-pointer">
+            <div className="flex items-start gap-2">
               <input
+                id="disclaimer-understood"
                 type="checkbox"
                 checked={understood}
                 onChange={(e) => setUnderstood(e.target.checked)}
-                className="rounded mt-0.5"
+                className="rounded mt-0.5 cursor-pointer"
               />
-              <span className="text-sm">
+              <label htmlFor="disclaimer-understood" className="text-sm cursor-pointer">
                 I understand that THE LABEL IS THE LAW and I will always read and follow product labels.
-              </span>
-            </label>
+              </label>
+            </div>
           </div>
 
           <div className="flex gap-3">
