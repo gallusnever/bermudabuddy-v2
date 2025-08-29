@@ -134,11 +134,12 @@ def _fallback_nickname(req: NicknameRequest) -> str:
             cat = "high"
         elif req.hoc < 0.5:
             cat = "low"
+    import random
     if cat:
         options = hoc_insults[cat]
-        suffix = options[hash((req.first_name, req.hoc)) % len(options)]
+        suffix = random.choice(options)
     else:
-        suffix = insults[hash((req.first_name, req.state)) % len(insults)]
+        suffix = random.choice(insults)
     return f"{req.first_name}{suffix}"
 
 
@@ -215,8 +216,10 @@ async def api_generate_nickname(payload: NicknameRequest) -> Dict[str, str]:
                 .get("content", "")
                 .strip()
             )
+            log.info(f"OpenRouter returned: {content}")
             nickname = "".join(ch for ch in content if ch.isalnum())[:30]
             if not nickname:
+                log.warning(f"Empty nickname after filtering, using fallback")
                 nickname = _fallback_nickname(payload)
             return {"nickname": nickname}
     except Exception as e:

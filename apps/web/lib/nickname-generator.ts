@@ -119,7 +119,15 @@ export async function checkNicknameUniqueness(nickname: string): Promise<boolean
 }
 
 // Generate unique nickname with retries
-export async function generateUniqueNickname(context: NicknameContext): Promise<string> {
+export async function generateUniqueNickname(context: NicknameContext, skipUniquenessCheck: boolean = false): Promise<string> {
+  // During signup, we can't check uniqueness (user not authenticated yet)
+  if (skipUniquenessCheck) {
+    const nickname = await generateBudNickname(context);
+    // Add random suffix to reduce collision chance
+    const randomSuffix = Math.floor(Math.random() * 100);
+    return randomSuffix > 0 ? `${nickname}${randomSuffix}` : nickname;
+  }
+  
   let attempts = 0;
   const maxAttempts = 5;
   

@@ -57,7 +57,8 @@ export function AccountNicknameStep({
         issues: statusData?.issues || []
       };
 
-      const generatedNickname = await generateUniqueNickname(context);
+      // Skip uniqueness check during signup (user not authenticated yet)
+      const generatedNickname = await generateUniqueNickname(context, true);
       setNickname(generatedNickname);
       setStage('nickname');
     } catch (error) {
@@ -148,7 +149,15 @@ export function AccountNicknameStep({
         });
 
         // Refresh the profile in auth context to get the saved data
-        await refreshProfile();
+        // Only if refreshProfile is available (user might not be set in context yet)
+        if (refreshProfile) {
+          try {
+            await refreshProfile();
+          } catch (err) {
+            console.warn('[Profile] Could not refresh profile:', err);
+            // Continue anyway - profile will be fetched on next page load
+          }
+        }
         
         // Pass data forward ONLY if profile saved successfully
         const accountData = {
