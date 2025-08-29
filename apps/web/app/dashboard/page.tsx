@@ -27,7 +27,7 @@ type Summary = {
 };
 
 export default function DashboardPage() {
-  const { profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const [summary, setSummary] = useState<Summary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -61,7 +61,13 @@ export default function DashboardPage() {
   useEffect(() => {
     const load = async () => {
       console.log('[Dashboard] Loading with profile:', JSON.stringify(profile, null, 2));
-      console.log('[Dashboard] User:', user?.id);
+      
+      // If profile is missing coordinates, try refreshing it
+      if (profile && !profile.lat && !profile.lon && refreshProfile) {
+        console.log('[Dashboard] Profile missing coordinates, refreshing...');
+        await refreshProfile();
+        return; // Will re-run this effect when profile updates
+      }
       
       try {
         setLoading(true);
@@ -128,7 +134,7 @@ export default function DashboardPage() {
       } catch {}
     };
     load();
-  }, [windSource, gddModel, profile?.area_sqft]);
+  }, [windSource, gddModel, profile, refreshProfile]); // Re-run when profile changes
 
   async function onLogPgr() {
     try {
