@@ -13,3 +13,4 @@ geoalchemy2==0.15.2
 alembic==1.13.2
 anyio==4.10.0
 pyyaml==6.0.2
+PyJWT==2.8.0
