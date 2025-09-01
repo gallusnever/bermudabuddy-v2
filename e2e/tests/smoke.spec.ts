@@ -38,7 +38,9 @@ test('onboarding page renders and screenshots', async ({ page }) => {
   // If Mapbox is configured, the canvas should exist; wait briefly but don't fail hard
   try {
     await page.waitForSelector('.mapboxgl-canvas', { timeout: 2000 });
-  } catch {}
+  } catch {
+    // Mapbox might not be loaded, continue anyway
+  }
   await page.getByLabel('Address').fill('123 Bermuda Ln');
   await page.getByLabel('State').selectOption('TX');
   await page.getByLabel('Area (ft²)').fill('4500');

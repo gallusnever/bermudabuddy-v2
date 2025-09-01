@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 import os
 import glob
 import yaml
+from functools import lru_cache
 
 
 def epa_ppls_pdf_url(reg_no: str) -> Optional[str]:
@@ -14,6 +15,10 @@ def epa_ppls_pdf_url(reg_no: str) -> Optional[str]:
     parts = reg_no.split('-')
     return f"https://www3.epa.gov/pesticides/chem_search/ppls/{parts[0]}/{reg_no}-latest.pdf"
 
+
+@lru_cache(maxsize=1)
+def _recipes_cache(data_dir: str) -> tuple[dict, ...]:
+    return tuple(load_label_recipes(data_dir))
 
 def load_label_recipes(data_dir: str) -> List[Dict[str, Any]]:
     recipes: List[Dict[str, Any]] = []

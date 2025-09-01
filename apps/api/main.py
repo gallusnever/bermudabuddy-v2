@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Optional, Dict, Any, Iterator
 from datetime import timedelta
+from contextlib import asynccontextmanager
 
 from pydantic import BaseModel
 from pydantic import Field
@@ -22,7 +23,8 @@ from apps.api.services.ok_to_spray import ok_to_spray_hour
 from apps.api.services.station_select import select_nearest_station_safe
 from apps.api.providers.nws import NWSProvider, MissingNWSUserAgent
 from apps.api.services.mix_math import calc_mix
-from apps.api.services.labels import epa_ppls_pdf_url, load_label_recipes, search_recipes, filter_rates_for_product
+from apps.api.services.labels import epa_ppls_pdf_url, load_label_recipes, search_recipes, filter_rates_for_product, _recipes_cache
+from apps.api.auth import verify_bearer_token
 import httpx
 
 
@@ -47,7 +49,13 @@ def setup_logging() -> None:
 setup_logging()
 log = logging.getLogger(__name__)
 
-app = FastAPI(title=APP_NAME, version=APP_VERSION)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.httpx = httpx.AsyncClient(timeout=20)
+    yield
+    await app.state.httpx.aclose()
+
+app = FastAPI(title=APP_NAME, version=APP_VERSION, lifespan=lifespan)
 
 # CORS configuration - reads from environment or uses defaults
 cors_origins_env = os.getenv("CORS_ORIGINS", "")
@@ -55,11 +63,12 @@ if cors_origins_env:
     # Parse comma-separated origins from environment
     allow_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
 else:
-    # Default for local development
+    # Default origins for production and development
     allow_origins = [
-        "http://localhost:3000", "http://127.0.0.1:3000",
-        "http://localhost:3001", "http://127.0.0.1:3001",
-        "http://localhost:3100", "http://127.0.0.1:3100",
+        "https://bermudabuddy.com",
+        "https://bermudabuddy-v2.onrender.com",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
     ]
 
 app.add_middleware(
@@ -549,19 +558,23 @@ async def api_ok_to_spray(
     source_label = "OpenMeteo"
     wind_rows = om_rows
     if wind_source == "nws" and os.getenv("NWS_USER_AGENT"):
+        nws_by_ts = {}
         try:
             nws = NWSProvider()
             nws_rows = await nws.get_forecast_hourly(lat, lon)
-            # align by index; use NWS wind/gust when available, OM precip
+            for r in nws_rows:
+                if r.get("ts"):
+                    nws_by_ts[r["ts"]] = r
             merged: List[Dict[str, Any]] = []
-            for i in range(min(len(om_rows), len(nws_rows))):
+            for omr in om_rows:
+                nr = nws_by_ts.get(omr["ts"])
                 merged.append({
-                    "ts": om_rows[i]["ts"],
-                    "wind_mph": nws_rows[i].get("wind_mph", om_rows[i].get("wind_mph")),
-                    "wind_gust_mph": nws_rows[i].get("wind_gust_mph", om_rows[i].get("wind_gust_mph")),
-                    "precip_prob": om_rows[i].get("precip_prob"),
-                    "precip_in": om_rows[i].get("precip_in"),
-                    "provider": "NWS+OpenMeteo",
+                    "ts": omr["ts"],
+                    "wind_mph": (nr or {}).get("wind_mph", omr.get("wind_mph")),
+                    "wind_gust_mph": (nr or {}).get("wind_gust_mph", omr.get("wind_gust_mph")),
+                    "precip_prob": omr.get("precip_prob"),
+                    "precip_in": omr.get("precip_in"),
+                    "provider": "NWS+OpenMeteo" if nr else "OpenMeteo",
                 })
             wind_rows = merged
             source_label = "NWS+OpenMeteo"
@@ -709,10 +722,10 @@ def _ensure_sqlite_onboarding_tables(session: Session) -> None:
         pass
 
 @app.post("/api/properties")
-def create_property(payload: PropertyCreate, session: Session = Depends(get_db_session)):
+def create_property(payload: PropertyCreate, user=Depends(verify_bearer_token), session: Session = Depends(get_db_session)):
     _ensure_sqlite_onboarding_tables(session)
     p = DBProperty(
-        user_id=payload.user_id,
+        user_id=user.get("sub"),
         address=payload.address,
         state=payload.state,
         program_goal=payload.program_goal,
@@ -737,11 +750,10 @@ class PolygonCreate(BaseModel):
 
 
 @app.post("/api/properties/{property_id}/polygons")
-def add_polygon(property_id: int, payload: PolygonCreate, session: Session = Depends(get_db_session)):
-    # Ensure property exists
+def add_polygon(property_id: int, payload: PolygonCreate, user=Depends(verify_bearer_token), session: Session = Depends(get_db_session)):
     _ensure_sqlite_onboarding_tables(session)
     prop = session.exec(select(DBProperty).where(DBProperty.id == property_id)).first()
-    if not prop:
+    if not prop or (prop.user_id and prop.user_id != user.get("sub")):
         raise HTTPException(status_code=404, detail="property not found")
     poly = DBPolygon(property_id=property_id, name=payload.name, geojson=payload.geojson, area_sqft=payload.area_sqft)
     session.add(poly)
@@ -757,10 +769,10 @@ class PolygonUpdate(BaseModel):
 
 
 @app.put("/api/properties/{property_id}/polygons/{polygon_id}")
-def update_polygon(property_id: int, polygon_id: int, payload: PolygonUpdate, session: Session = Depends(get_db_session)):
+def update_polygon(property_id: int, polygon_id: int, payload: PolygonUpdate, user=Depends(verify_bearer_token), session: Session = Depends(get_db_session)):
     _ensure_sqlite_onboarding_tables(session)
     prop = session.exec(select(DBProperty).where(DBProperty.id == property_id)).first()
-    if not prop:
+    if not prop or (prop.user_id and prop.user_id != user.get("sub")):
         raise HTTPException(status_code=404, detail="property not found")
     poly = session.exec(select(DBPolygon).where(DBPolygon.id == polygon_id, DBPolygon.property_id == property_id)).first()
     if not poly:
@@ -778,10 +790,10 @@ def update_polygon(property_id: int, polygon_id: int, payload: PolygonUpdate, se
 
 
 @app.delete("/api/properties/{property_id}/polygons/{polygon_id}")
-def delete_polygon(property_id: int, polygon_id: int, session: Session = Depends(get_db_session)):
+def delete_polygon(property_id: int, polygon_id: int, user=Depends(verify_bearer_token), session: Session = Depends(get_db_session)):
     _ensure_sqlite_onboarding_tables(session)
     prop = session.exec(select(DBProperty).where(DBProperty.id == property_id)).first()
-    if not prop:
+    if not prop or (prop.user_id and prop.user_id != user.get("sub")):
         raise HTTPException(status_code=404, detail="property not found")
     poly = session.exec(select(DBPolygon).where(DBPolygon.id == polygon_id, DBPolygon.property_id == property_id)).first()
     if not poly:
@@ -792,10 +804,10 @@ def delete_polygon(property_id: int, polygon_id: int, session: Session = Depends
 
 
 @app.get("/api/properties/{property_id}")
-def get_property(property_id: int, session: Session = Depends(get_db_session)):
+def get_property(property_id: int, user=Depends(verify_bearer_token), session: Session = Depends(get_db_session)):
     _ensure_sqlite_onboarding_tables(session)
     prop = session.exec(select(DBProperty).where(DBProperty.id == property_id)).first()
-    if not prop:
+    if not prop or (prop.user_id and prop.user_id != user.get("sub")):
         raise HTTPException(status_code=404, detail="property not found")
     return {
         "id": prop.id,
@@ -809,11 +821,20 @@ def get_property(property_id: int, session: Session = Depends(get_db_session)):
     }
 
 
+@app.get("/api/properties")
+def list_my_properties(mine: Optional[int] = None, user=Depends(verify_bearer_token), session: Session = Depends(get_db_session)):
+    if mine != 1:
+        raise HTTPException(status_code=400, detail="unsupported")
+    _ensure_sqlite_onboarding_tables(session)
+    rows = session.exec(select(DBProperty).where(DBProperty.user_id == user.get("sub"))).all()
+    return [{"id": r.id, "address": r.address, "state": r.state} for r in rows]
+
+
 @app.get("/api/properties/{property_id}/polygons")
-def list_polygons(property_id: int, session: Session = Depends(get_db_session)):
+def list_polygons(property_id: int, user=Depends(verify_bearer_token), session: Session = Depends(get_db_session)):
     _ensure_sqlite_onboarding_tables(session)
     prop = session.exec(select(DBProperty).where(DBProperty.id == property_id)).first()
-    if not prop:
+    if not prop or (prop.user_id and prop.user_id != user.get("sub")):
         raise HTTPException(status_code=404, detail="property not found")
     polys = session.exec(select(DBPolygon).where(DBPolygon.property_id == property_id)).all()
     return [{"id": p.id, "name": p.name, "area_sqft": p.area_sqft} for p in polys]
@@ -836,7 +857,7 @@ def api_labels_by_epa(reg_no: str, session: Session = Depends(get_db_session)):
     # attempt to enrich from curated recipes
     base = os.path.join(os.getcwd(), 'data', 'label_recipes')
     try:
-        recs = load_label_recipes(base)
+        recs = list(_recipes_cache(base))
     except Exception:
         recs = []
     sig = None
@@ -879,14 +900,14 @@ def api_labels_by_epa(reg_no: str, session: Session = Depends(get_db_session)):
 @app.get("/api/labels/search")
 def api_labels_search(query: str):
     base = os.path.join(os.getcwd(), 'data', 'label_recipes')
-    recs = load_label_recipes(base)
+    recs = list(_recipes_cache(base))
     return {"results": search_recipes(recs, query)}
 
 
 @app.get("/api/products/{product_id}/rates")
 def api_product_rates(product_id: str, hoc_in: Optional[float] = Query(None)):
     base = os.path.join(os.getcwd(), 'data', 'label_recipes')
-    recs = load_label_recipes(base)
+    recs = list(_recipes_cache(base))
     data = filter_rates_for_product(recs, product_id, hoc_in)
     return data
 
@@ -918,38 +939,51 @@ def api_labels_picol(reg_no: str, state: Optional[str] = None, session: Session 
 
 
 @app.get("/api/properties/{property_id}/applications")
-def api_list_applications(property_id: int, session: Session = Depends(get_db_session)):
+def api_list_applications(property_id: int, user=Depends(verify_bearer_token), session: Session = Depends(get_db_session)):
     prop = session.exec(select(DBProperty).where(DBProperty.id == property_id)).first()
-    if not prop:
+    if not prop or (prop.user_id and prop.user_id != user.get("sub")):
         raise HTTPException(status_code=404, detail="property not found")
     rows = session.execute(sa_text("SELECT id, product_id, date, rate_value, rate_unit, area_sqft, batch_id FROM applications WHERE property_id = :pid"), {"pid": property_id}).mappings().all()
     return list(rows)
 
 
 @app.get("/api/applications/{application_id}")
-def api_get_application(application_id: int, session: Session = Depends(get_db_session)):
+def api_get_application(application_id: int, user=Depends(verify_bearer_token), session: Session = Depends(get_db_session)):
     row = session.execute(
         sa_text(
-            "SELECT id, property_id, product_id, date, rate_value, rate_unit, area_sqft, carrier_gpa, tank_size_gal, gdd_model, notes, weather_snapshot FROM applications WHERE id = :id"
+            "SELECT a.id, a.property_id, a.product_id, a.date, a.rate_value, a.rate_unit, a.area_sqft, a.carrier_gpa, a.tank_size_gal, a.gdd_model, a.notes, a.weather_snapshot, p.user_id "
+            "FROM applications a JOIN properties p ON p.id = a.property_id "
+            "WHERE a.id = :id"
         ),
         {"id": application_id},
     ).mappings().first()
-    if not row:
+    if not row or (row.get("user_id") and row.get("user_id") != user.get("sub")):
         raise HTTPException(status_code=404, detail="application not found")
-    return dict(row)
+    d = dict(row)
+    d.pop("user_id", None)
+    return d
 
 
 @app.get("/api/application-batches/{batch_id}")
-def api_get_application_batch(batch_id: str, session: Session = Depends(get_db_session)):
+def api_get_application_batch(batch_id: str, user=Depends(verify_bearer_token), session: Session = Depends(get_db_session)):
     rows = session.execute(
         sa_text(
-            "SELECT id, property_id, product_id, date, rate_value, rate_unit, area_sqft, carrier_gpa, tank_size_gal, gdd_model, notes FROM applications WHERE batch_id = :bid ORDER BY id"
+            "SELECT a.id, a.property_id, a.product_id, a.date, a.rate_value, a.rate_unit, a.area_sqft, a.carrier_gpa, a.tank_size_gal, a.gdd_model, a.notes, p.user_id "
+            "FROM applications a JOIN properties p ON p.id = a.property_id "
+            "WHERE a.batch_id = :bid ORDER BY a.id"
         ),
         {"bid": batch_id},
     ).mappings().all()
     if not rows:
         raise HTTPException(status_code=404, detail="batch not found")
-    return [dict(r) for r in rows]
+    if any(r.get("user_id") and r.get("user_id") != user.get("sub") for r in rows):
+        raise HTTPException(status_code=404, detail="batch not found")
+    out = []
+    for r in rows:
+        d = dict(r)
+        d.pop("user_id", None)
+        out.append(d)
+    return out
 
 
 class PgrLogRequest(BaseModel):
@@ -958,9 +992,9 @@ class PgrLogRequest(BaseModel):
 
 
 @app.post("/api/pgr/apply")
-def api_pgr_apply(req: PgrLogRequest, session: Session = Depends(get_db_session)):
+def api_pgr_apply(req: PgrLogRequest, user=Depends(verify_bearer_token), session: Session = Depends(get_db_session)):
     prop = session.exec(select(DBProperty).where(DBProperty.id == req.property_id)).first()
-    if not prop:
+    if not prop or (prop.user_id and prop.user_id != user.get("sub")):
         raise HTTPException(status_code=404, detail="property not found")
     today = datetime.utcnow().date().isoformat()
     if req.model == 'gdd0':
@@ -990,9 +1024,9 @@ class ApplicationsBulkRequest(BaseModel):
 
 
 @app.post("/api/applications/bulk")
-async def api_applications_bulk(req: ApplicationsBulkRequest, session: Session = Depends(get_db_session)):
+async def api_applications_bulk(req: ApplicationsBulkRequest, user=Depends(verify_bearer_token), session: Session = Depends(get_db_session)):
     prop = session.exec(select(DBProperty).where(DBProperty.id == req.property_id)).first()
-    if not prop:
+    if not prop or (prop.user_id and prop.user_id != user.get("sub")):
         raise HTTPException(status_code=404, detail="property not found")
     try:
         bind = session.get_bind()
@@ -1031,7 +1065,7 @@ async def api_applications_bulk(req: ApplicationsBulkRequest, session: Session =
                 'tank_size_gal': req.tank_size_gal,
                 'gdd_model': req.gdd_model,
                 'notes': req.notes,
-                'weather_snapshot': weather_snapshot,
+                'weather_snapshot': json.dumps(weather_snapshot),
                 'batch_id': batch_id,
             },
         )

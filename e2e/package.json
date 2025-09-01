@@ -4,9 +4,13 @@
   "type": "module",
   "scripts": {
     "test": "playwright test --config=playwright.config.ts --reporter=list",
+    "test:security": "playwright test tests/security-audit.spec.ts --config=playwright.config.ts --reporter=html",
+    "test:security:headed": "playwright test tests/security-audit.spec.ts --config=playwright.config.ts --headed --reporter=html",
     "postinstall": "playwright install"
   },
   "devDependencies": {
-    "@playwright/test": "^1.46.1"
+    "@playwright/test": "^1.46.1",
+    "jsonwebtoken": "^9.0.2",
+    "@types/jsonwebtoken": "^9.0.5"
   }
 }
